@@ -23,7 +23,7 @@ def main():
 def verify_data(data):
     # Weryfikacja długości datagramu i zawartości
     if len(data) >= 2 and data[:2] == len(data[2:]).to_bytes(2, byteorder="big"):
-        print(data)
+        # print(data)
         return True
     return False
 
