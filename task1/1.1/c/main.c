@@ -8,5 +8,8 @@ int main()
     char* message = decodeDatagram(datagram);
 
     printf("%s", message);
+
+    free(datagram);
+    free(message);
     return 0;
 }
