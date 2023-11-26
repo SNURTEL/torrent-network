@@ -23,8 +23,8 @@ def main():
 def verify_data(data):
     # Weryfikacja długości datagramu i zawartości
     if len(data) >= 2 and data[:2] == len(data[2:]).to_bytes(2, byteorder="big"):
-        expected_data = bytes([i % 26 + 65 for i in range(len(data) - 2)])
-        return data[2:] == expected_data
+        print(data)
+        return True
     return False
 
 
