@@ -3,43 +3,46 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/socket.h>
-#include <netdb.h>
+
 #include "networking/networking.h"
+#include "datagrams/datagram.h"
 
 #define SERVERPORT "8080"    // the port users will be connecting to
 
 int main(int argc, char *argv[])
 {
     int sockfd;
-    struct addrinfo hints, *addrinfo;
+    struct socketInfo socketInfo;
 
     if (argc != 3) {
-        fprintf(stderr,"usage: talker hostname message\n");
+        fprintf(stderr,"usage: hostname message\n");
         exit(1);
     }
 
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_INET; // set to AF_INET to use IPv4
-    hints.ai_socktype = SOCK_DGRAM;
+    char* datagram = generateDatagram(argv[2], strlen(argv[2]));
 
-    if (getaddrinfo(NULL, SERVERPORT, &hints, &addrinfo) != 0)
+    socketInfo = getSocket(false, SERVERPORT, argv[1]);
+
+    if (socketInfo.sockfd == -1)
     {
-        printf("getaddrinfo ERROR");
+        printf("Failed to create socket, shutting down...\n");
         return -1;
     }
 
-    sockfd = loopThroughSockets(addrinfo, true);
-
-    if (sockfd == -1)
+    if (sendto(socketInfo.sockfd, datagram, strlen(argv[2]), 0,
+               socketInfo.addrinfo->ai_addr, socketInfo.addrinfo->ai_addrlen) == -1)
     {
-        printf("Failed to create socket, shutting down...");
+        printf("sendto: ERROR\n");
         return -1;
     }
+    else
+    {
+        printf("Sent a message!\n");
+    }
 
-
-    freeaddrinfo(addrinfo);
-
-    close(sockfd);
+    free(datagram);
+    close(socketInfo.sockfd);
+    //freeaddrinfo(socketInfo.addrinfo);
 
     return 0;
 }

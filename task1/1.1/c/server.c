@@ -1,14 +1,14 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <unistd.h>
-#include <string.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 
 #include "networking/networking.h"
+#include "datagrams/datagram.h"
 
-#define MYPORT "8080"
-#define MAXBUFLEN 100
+#define SERVERPORT "8080"
+#define BACKLOG 10
+#define DATAGRAM_SIZE 1024
 
 // get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa)
@@ -22,34 +22,35 @@ void *get_in_addr(struct sockaddr *sa)
 
 int main()
 {
-    int sockfd;
-    struct addrinfo hints, *addrinfo;
+    char buffer[DATAGRAM_SIZE];
+    struct sockaddr_storage incomingConn;
+    socklen_t incomingConnSize;
+    struct socketInfo socketInfo;
 
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_INET6; // set to AF_INET to use IPv4
-    hints.ai_socktype = SOCK_DGRAM;
-    hints.ai_flags = AI_PASSIVE; // use my IP
-
-    if (getaddrinfo(NULL, MYPORT, &hints, &addrinfo) != 0)
-    {
-        printf("getaddrinfo ERROR");
-        return -1;
-    }
-
-    sockfd = loopThroughSockets(addrinfo, true);
-
-    if (sockfd == -1)
+    socketInfo = getSocket(true, SERVERPORT, NULL);
+    if (socketInfo.sockfd == -1)
     {
         printf("Failed to create socket, shutting down...");
         return -1;
     }
-
-    freeaddrinfo(addrinfo);
-
+    listen(socketInfo.sockfd, BACKLOG);
     printf("listener: waiting to recvfrom...\n");
 
+    incomingConnSize = sizeof(incomingConn);
 
-    close(sockfd);
+    if (recvfrom(socketInfo.sockfd, buffer, DATAGRAM_SIZE, 0,
+                 (struct sockaddr *)&incomingConn, &incomingConnSize) == -1)
+    {
+        printf("recvfrom: ERROR");
+        return -1;
+    }
+
+    char* message = decodeDatagram(buffer);
+    printf("Message: %s", message);
+
+    free(message);
+    close(socketInfo.sockfd);
+    //freeaddrinfo(socketInfo.addrinfo);
 
     return 0;
 }
