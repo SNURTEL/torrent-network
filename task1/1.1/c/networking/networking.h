@@ -7,9 +7,12 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include "stdbool.h"
+#include "../datagrams/datagram.h"
 
 #ifndef PSI_NETWORKING_H
 #define PSI_NETWORKING_H
+
+#define BACKLOG 10
 
 struct socketInfo
 {
@@ -21,7 +24,7 @@ int bindSocket(struct addrinfo *current, int sockfd)
 {
     if (bind(sockfd, current->ai_addr, current->ai_addrlen) == -1) {
         close(sockfd);
-        printf("bind socket: ERROR");
+        printf("bind socket: ERROR\n");
         return -1;
     }
     else
@@ -40,7 +43,7 @@ struct socketInfo loopThroughSockets(struct addrinfo *servinfo, bool isServer)
 
         if (sockfd == -1)
         {
-            printf("create socket: ERROR");
+            printf("create socket: ERROR\n");
             continue;
         }
 
@@ -60,7 +63,6 @@ struct socketInfo loopThroughSockets(struct addrinfo *servinfo, bool isServer)
 
 struct socketInfo getSocket(bool isServer, const char* port, const char* hostname)
 {
-    int sockfd;
     struct addrinfo hints, *addrinfo;
     struct socketInfo socketInfo;
 
@@ -75,7 +77,7 @@ struct socketInfo getSocket(bool isServer, const char* port, const char* hostnam
 
     if (getaddrinfo(hostname, port, &hints, &addrinfo) != 0)
     {
-        printf("getaddrinfo ERROR");
+        printf("getaddrinfo ERROR\n");
         return socketInfo;
     }
 
@@ -83,6 +85,59 @@ struct socketInfo getSocket(bool isServer, const char* port, const char* hostnam
     freeaddrinfo(addrinfo);
 
     return socketInfo;
+}
+
+int sendMessage(struct socketInfo socketInfo, char* message)
+{
+    char* datagram = generateDatagram(message, strlen(message) + 1);
+    int returnCode;
+
+    if (sendto(socketInfo.sockfd, datagram, strlen(message) + HEADER_SIZE, 0,
+               socketInfo.addrinfo->ai_addr, socketInfo.addrinfo->ai_addrlen) == -1)
+    {
+        printf("sendto: ERROR\n");
+        returnCode = -1;
+    }
+    else
+    {
+        printf("Sent a message!\n");
+        returnCode = 0;
+    }
+
+    free(datagram);
+    return returnCode;
+}
+
+int receiveMessage(struct socketInfo socketInfo)
+{
+    struct sockaddr_storage incomingConn;
+    socklen_t incomingConnSize;
+    char buffer[DATAGRAM_SIZE];
+    int returnCode;
+
+    listen(socketInfo.sockfd, BACKLOG);
+    printf("waiting for a message...\n");
+
+    incomingConnSize = sizeof(incomingConn);
+
+    if (recvfrom(socketInfo.sockfd, buffer, DATAGRAM_SIZE, 0,
+                 (struct sockaddr *)&incomingConn, &incomingConnSize) == -1)
+    {
+        printf("recvfrom: ERROR\n");
+        return -1;
+    }
+
+    char* message = decodeDatagram(buffer);
+    if (isBufferEmpty(message, strlen(message)))
+        returnCode = -2;
+    else
+    {
+        returnCode = 0;
+        printf("Message: %s\n", message);
+    }
+
+    free(message);
+    return returnCode;
 }
 
 #endif //PSI_NETWORKING_H

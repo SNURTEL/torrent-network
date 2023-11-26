@@ -5,15 +5,29 @@
 #ifndef PSI_DATAGRAM_H
 #define PSI_DATAGRAM_H
 
-int DATAGRAM_SIZE = 1024; // in bytes
-int HEADER_SIZE = 2;
+const int DATAGRAM_SIZE = 1024; // in bytes
+const int HEADER_SIZE = 6;
+const uint32_t MOD_ADLER = 65521;
 
-char* generateDatagram(const char* message, const short messageLength)
+uint32_t adler32(unsigned const char *buffer, const size_t len)
 {
-    char* datagram = (char *)malloc(DATAGRAM_SIZE);
+    uint32_t a = 1, b = 0;
+    size_t index;
 
-    for (int i = 0; i < DATAGRAM_SIZE; ++i)
-        datagram[i] = 0;
+    for (index = 0; index < len; ++index)
+    {
+        a = (a + buffer[index]) % MOD_ADLER;
+        b = (b + a) % MOD_ADLER;
+    }
+
+    return (b << 16) | a;
+}
+
+char* generateDatagram(const char* message, short messageLength)
+{
+    unsigned char* datagram = (char *)malloc(DATAGRAM_SIZE);
+
+    memset(datagram, 0, DATAGRAM_SIZE);
 
     if (messageLength > DATAGRAM_SIZE - HEADER_SIZE)
     {
@@ -29,15 +43,22 @@ char* generateDatagram(const char* message, const short messageLength)
     for (int i = 8; i < 16; ++i)
         datagram[1] = bit_set_to(datagram[1], 15 - i, (bool)binarySize[i]);
 
-    for (int i = 0; i < messageLength; ++i)
-        datagram[i+2] = message[i];
+    // encode checksum in datagram
+    uint32_t checksum = adler32(message, messageLength);
+    datagram[2] = (checksum >> 24) & 0xFF;
+    datagram[3] = (checksum >> 16) & 0xFF;
+    datagram[4] = (checksum >> 8) & 0xFF;
+    datagram[5] = checksum & 0xFF;
+
+    for (int i = 0; i < messageLength - 1; ++i)
+        datagram[i+HEADER_SIZE] = message[i];
+
+    free(binarySize);
 
     return datagram;
 }
 
-
-
-char* decodeDatagram(char* datagram)
+char* decodeDatagram(const unsigned char* datagram)
 {
     char size[16];
 
@@ -51,7 +72,16 @@ char* decodeDatagram(char* datagram)
     char* message = (char *)malloc(messageLength);
 
     for (int i = 0; i < messageLength; ++i)
-        message[i] = datagram[i+2];
+        message[i] = datagram[i+HEADER_SIZE];
+
+    uint32_t theirChecksum = ((uint32_t)datagram[2] << 24) | ((uint32_t)datagram[3] << 16) | ((uint32_t)datagram[4] << 8) | (uint32_t)datagram[5];
+    uint32_t ourChecksum = adler32(message, messageLength);
+
+    if (theirChecksum != ourChecksum)
+    {
+        printf("Checksum is not valid!\n");
+        memset(message, 0, messageLength);
+    }
 
     return message;
 }

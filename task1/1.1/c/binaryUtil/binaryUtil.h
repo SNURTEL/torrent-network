@@ -4,9 +4,19 @@
 #ifndef PSI_BINARYUTIL_H
 #define PSI_BINARYUTIL_H
 
+int isBufferEmpty(char * buffer, int size)
+{
+    for(int i = 0; i < size; i++) {
+        if (buffer[i] != 0)
+            return 0;
+    }
+    return 1;
+}
+
 char* shortToBinary(unsigned short n)
 {
     char* binary = (char *)malloc(16);
+    memset(binary, 0, 16);
     int i = sizeof(n) * 8 - 1;
     while (n != 0)
     {
