@@ -12,19 +12,15 @@ int main(int argc, char *argv[])
     struct socketInfo socketInfo;
     char buffer[DATAGRAM_SIZE];
     struct sockaddr_storage incomingConn;
-    socklen_t incomingConnSize;
-    int returnCode;
-    char* port;
+    socklen_t incomingConnSize = sizeof(incomingConn);
+    char* datagram;
 
     if (argc != 4) {
-        fprintf(stderr,"usage: hostname message port\n");
-        exit(1);
+        printf("usage: hostname message port\n");
+        return 0;
     }
 
-    port = argv[3];
-    char* datagram = generateDatagram(argv[2], strlen(argv[2]) + 1);
-
-    socketInfo = getSocket(false, port, argv[1]);
+    socketInfo = getSocket(false, argv[3], argv[1]);
 
     if (socketInfo.sockfd == -1)
     {
@@ -32,27 +28,52 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    if (sendto(socketInfo.sockfd, datagram, strlen(argv[2]) + 1 + HEADER_SIZE , 0,
+    datagram = generateDatagram(argv[2], strlen(argv[2]) + 1);
+
+    if (isBufferEmpty(datagram, DATAGRAM_SIZE))
+    {
+        close(socketInfo.sockfd);
+        free(datagram);
+        return -1;
+    }
+
+    //strlen(argv[2]) + 1 + HEADER_SIZE
+    if (sendto(socketInfo.sockfd, datagram, DATAGRAM_SIZE , 0,
                socketInfo.addrinfo->ai_addr, socketInfo.addrinfo->ai_addrlen) == -1)
     {
         printf("sendto: ERROR\n");
-        returnCode = -1;
+        close(socketInfo.sockfd);
+        free(datagram);
+        return -1;
     }
-    else
-    {
-        printf("Sent a message!\n");
-        returnCode = 0;
-    }
+
+    printf("Sent a message!\n");
 
     printf("Waiting for confirmation...\n");
-    incomingConnSize = sizeof(incomingConn);
-    recvfrom(socketInfo.sockfd, buffer, DATAGRAM_SIZE, 0, (struct sockaddr *)&incomingConn, &incomingConnSize);
+
+    if (recvfrom(socketInfo.sockfd, buffer, DATAGRAM_SIZE, 0,
+                 (struct sockaddr *)&incomingConn, &incomingConnSize) == -1)
+    {
+        printf("No confirmation received, shutting down...\n");
+        close(socketInfo.sockfd);
+        free(datagram);
+        return -1;
+    }
+
     char* message = decodeDatagram(buffer);
 
-    printf("Confirmation: %s\n", message);
+    if (isBufferEmpty(message, strlen(message) + 1))
+    {
+        printf("Checksum is invalid!\n");
+        close(socketInfo.sockfd);
+        free(datagram);
+        free(message);
+        return -1;
+    }
 
+    printf("Confirmation: %s\n", message);
     close(socketInfo.sockfd);
     free(datagram);
-    return returnCode;
-    //freeaddrinfo(socketInfo.addrinfo);
+    free(message);
+    return 0;
 }

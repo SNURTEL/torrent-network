@@ -23,9 +23,9 @@ uint32_t adler32(unsigned const char *buffer, const size_t len)
     return (b << 16) | a;
 }
 
-char* generateDatagram(const char* message, short messageLength)
+char* generateDatagram(const unsigned char* message, const short messageLength)
 {
-    unsigned char* datagram = (char *)malloc(DATAGRAM_SIZE);
+    unsigned char* datagram = (unsigned char *)malloc(DATAGRAM_SIZE);
 
     memset(datagram, 0, DATAGRAM_SIZE);
 
@@ -35,7 +35,7 @@ char* generateDatagram(const char* message, short messageLength)
         return datagram;
     }
 
-    char* binarySize = shortToBinary(messageLength);
+    unsigned char* binarySize = shortToBinary(messageLength);
 
     for (int i = 0; i < 8; ++i)
         datagram[0] = bit_set_to(datagram[0], 7 - i, (bool)binarySize[i]);
@@ -58,9 +58,9 @@ char* generateDatagram(const char* message, short messageLength)
     return datagram;
 }
 
-char* decodeDatagram(const unsigned char* datagram)
+unsigned char* decodeDatagram(const unsigned char* datagram)
 {
-    char size[16];
+    unsigned char size[16];
 
     for (int i = 0; i < 8; ++i)
         size[i] = bit_check(datagram[0], 7 - i);
@@ -69,7 +69,7 @@ char* decodeDatagram(const unsigned char* datagram)
 
     unsigned short messageLength = binaryToShort(size);
 
-    char* message = (char *)malloc(messageLength);
+    unsigned char* message = (unsigned char *)malloc(messageLength);
 
     for (int i = 0; i < messageLength; ++i)
         message[i] = datagram[i+HEADER_SIZE];

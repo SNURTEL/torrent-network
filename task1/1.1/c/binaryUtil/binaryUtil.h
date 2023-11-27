@@ -4,7 +4,7 @@
 #ifndef PSI_BINARYUTIL_H
 #define PSI_BINARYUTIL_H
 
-int isBufferEmpty(char * buffer, int size)
+int isBufferEmpty(const char * buffer, const int size)
 {
     for(int i = 0; i < size; i++) {
         if (buffer[i] != 0)
@@ -13,9 +13,9 @@ int isBufferEmpty(char * buffer, int size)
     return 1;
 }
 
-char* shortToBinary(unsigned short n)
+unsigned char* shortToBinary(unsigned short n)
 {
-    char* binary = (char *)malloc(16);
+    unsigned char* binary = (unsigned char *)malloc(16);
     memset(binary, 0, 16);
     int i = sizeof(n) * 8 - 1;
     while (n != 0)
@@ -28,7 +28,7 @@ char* shortToBinary(unsigned short n)
     return binary;
 }
 
-unsigned short binaryToShort(char* binary)
+unsigned short binaryToShort(const unsigned char* binary)
 {
     short n = 0;
     for (int i = 0; i < 16; ++i)
@@ -36,12 +36,12 @@ unsigned short binaryToShort(char* binary)
     return n;
 }
 
-char bit_set_to(char number, char n, bool x) {
-    return (number & ~((char)1 << n)) | ((char)x << n);
+unsigned char bit_set_to(const unsigned char number, const unsigned char n, const bool x) {
+    return (number & ~((unsigned char)1 << n)) | ((unsigned char)x << n);
 }
 
-bool bit_check(char number, char n) {
-    return (number >> n) & (char)1;
+bool bit_check(const unsigned char number, const unsigned char n) {
+    return (number >> n) & (unsigned char)1;
 }
 
 #endif //PSI_BINARYUTIL_H

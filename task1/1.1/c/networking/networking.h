@@ -12,8 +12,6 @@
 #ifndef PSI_NETWORKING_H
 #define PSI_NETWORKING_H
 
-#define BACKLOG 10
-
 struct socketInfo
 {
     int sockfd;
@@ -24,7 +22,6 @@ int bindSocket(struct addrinfo *current, int sockfd)
 {
     if (bind(sockfd, current->ai_addr, current->ai_addrlen) == -1) {
         close(sockfd);
-        printf("bind socket: ERROR\n");
         return -1;
     }
     else
@@ -32,36 +29,46 @@ int bindSocket(struct addrinfo *current, int sockfd)
 }
 
 
-struct socketInfo loopThroughSockets(struct addrinfo *servinfo, bool isServer)
+struct socketInfo loopThroughAddrinfos(struct addrinfo *servinfo, const bool isServer)
 {
     struct addrinfo *current;
     struct socketInfo socketInfo;
-    int sockfd;
+    int sockfd = -1;
+    bool wasBindSuccessful = false;
 
     for(current = servinfo; current != NULL; current = current->ai_next) {
         sockfd = socket(current->ai_family, current->ai_socktype,current->ai_protocol);
 
         if (sockfd == -1)
         {
-            printf("create socket: ERROR\n");
             continue;
         }
 
         if (isServer)
         {
             if (bindSocket(current, sockfd) == -1)
+            {
+                wasBindSuccessful = false;
                 continue;
-        }
+            }
+            else
+                wasBindSuccessful = true;
 
+        }
         break;
     }
+
+    if (sockfd == -1)
+        printf("create socket: ERROR\n");
+    if (!wasBindSuccessful && isServer)
+        printf("bind socket: ERROR\n");
 
     socketInfo.sockfd = sockfd;
     socketInfo.addrinfo = current;
     return socketInfo;
 }
 
-struct socketInfo getSocket(bool isServer, const char* port, const char* hostname)
+struct socketInfo getSocket(const bool isServer, const char* port, const char* hostname)
 {
     struct addrinfo hints, *addrinfo;
     struct socketInfo socketInfo;
@@ -73,15 +80,16 @@ struct socketInfo getSocket(bool isServer, const char* port, const char* hostnam
     hints.ai_socktype = SOCK_DGRAM;
 
     if (isServer)
-        hints.ai_flags = AI_PASSIVE; // use my IP
+        hints.ai_flags = AI_PASSIVE;
 
     if (getaddrinfo(hostname, port, &hints, &addrinfo) != 0)
     {
-        printf("getaddrinfo ERROR\n");
+        printf("getaddrinfo: ERROR\n");
+        freeaddrinfo(addrinfo);
         return socketInfo;
     }
 
-    socketInfo = loopThroughSockets(addrinfo, isServer);
+    socketInfo = loopThroughAddrinfos(addrinfo, isServer);
     freeaddrinfo(addrinfo);
 
     return socketInfo;
