@@ -1,10 +1,11 @@
 import socket
 from zlib import adler32 as a32
+from client import prep_msg
 
 
 def main():
     server_ip = "127.0.0.1"
-    server_port = 12345
+    server_port = 8080
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server_socket.bind((server_ip, server_port))
@@ -14,12 +15,12 @@ def main():
     while True:
         data, addr = server_socket.recvfrom(1024)  # Odbieranie danych z klienta
         if verify_data(data):  # Weryfikacja odebranych danych
-            response = b"OK"
+            response = "OK"
             print(f"Odebrano poprawne dane od {addr}")
         else:
-            response = b"FAIL"
+            response = "FAIL"
             print(f"Odebrano niepoprawne dane od {addr}")
-        server_socket.sendto(response, addr)  # Odsyłanie odpowiedzi do klienta
+        server_socket.sendto(prep_msg(response), addr)  # Odsyłanie odpowiedzi do klienta
 
 
 def verify_checksum(data):
