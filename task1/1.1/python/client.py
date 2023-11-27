@@ -27,10 +27,12 @@ def prep_msg(msg=None):
         )  # Generowanie danych A-Z
         data.append(ord("\0"))
 
+
     checksum = a32(data).to_bytes(4, byteorder="big")
     # print(checksum)
     # Dodanie nagłówka z informacją o długości
     data = len(data).to_bytes(2, byteorder="big") + checksum + data
+    data.zfill(1024-len(data))
     return data
 
 

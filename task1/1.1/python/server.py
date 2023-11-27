@@ -20,17 +20,18 @@ def main():
         else:
             response = "FAIL"
             print(f"Odebrano niepoprawne dane od {addr}")
-        server_socket.sendto(prep_msg(response), addr)  # Odsyłanie odpowiedzi do klienta
+        print(data[6:].decode())
+        # Odsyłanie odpowiedzi do klienta
+        server_socket.sendto(prep_msg(response), addr)
 
 
 def verify_checksum(data):
     # print(data[2:6])
     # print(a32(data[6:]).to_bytes(4, byteorder="big"))
-    return (data[2:6] == a32(data[6:]).to_bytes(4, byteorder="big"))
+    return data[2:6] == a32(data[6:]).to_bytes(4, byteorder="big")
 
 
 def verify_data(data):
-    print(data)
     # Weryfikacja długości datagramu i zawartości
     if len(data) >= 2 and data[:2] == len(data[6:]).to_bytes(2, byteorder="big"):
         if verify_checksum(data):
