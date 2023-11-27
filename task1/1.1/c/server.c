@@ -23,7 +23,7 @@ int main()
         return -1;
     }
 
-    printf("waiting for a message...\n");
+    printf("waiting for a message on port %s\n", SERVERPORT);
 
     incomingConnSize = sizeof(incomingConn);
 

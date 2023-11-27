@@ -7,8 +7,6 @@
 #include "networking/networking.h"
 #include "datagrams/datagram.h"
 
-#define SERVERPORT "8080"
-
 int main(int argc, char *argv[])
 {
     struct socketInfo socketInfo;
@@ -16,15 +14,17 @@ int main(int argc, char *argv[])
     struct sockaddr_storage incomingConn;
     socklen_t incomingConnSize;
     int returnCode;
+    char* port;
 
-    if (argc != 3) {
-        fprintf(stderr,"usage: hostname message\n");
+    if (argc != 4) {
+        fprintf(stderr,"usage: hostname message port\n");
         exit(1);
     }
 
+    port = argv[3];
     char* datagram = generateDatagram(argv[2], strlen(argv[2]) + 1);
 
-    socketInfo = getSocket(false, SERVERPORT, argv[1]);
+    socketInfo = getSocket(false, port, argv[1]);
 
     if (socketInfo.sockfd == -1)
     {
