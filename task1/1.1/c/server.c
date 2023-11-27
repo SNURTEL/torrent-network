@@ -7,12 +7,14 @@
 #include "datagrams/datagram.h"
 
 #define SERVERPORT "8080"
-#define BACKLOG 10
 
 int main()
 {
     struct socketInfo socketInfo;
-    char message[2] = "OK";
+    struct sockaddr_storage incomingConn;
+    socklen_t incomingConnSize;
+    char buffer[DATAGRAM_SIZE];
+    int returnCode;
 
     socketInfo = getSocket(true, SERVERPORT, NULL);
     if (socketInfo.sockfd == -1)
@@ -21,13 +23,36 @@ int main()
         return -1;
     }
 
-    if (receiveMessage(socketInfo) == -2)
-        printf("An error has occured, shutting down...\n");
-    //else
-    //    sendMessage(socketInfo, message);
+    printf("waiting for a message...\n");
+
+    incomingConnSize = sizeof(incomingConn);
+
+    if (recvfrom(socketInfo.sockfd, buffer, DATAGRAM_SIZE, 0,
+                 (struct sockaddr *)&incomingConn, &incomingConnSize) == -1)
+    {
+        printf("recvfrom: ERROR\n");
+        return -1;
+    }
+
+    char* message = decodeDatagram(buffer);
+    if (isBufferEmpty(message, strlen(message)))
+        returnCode = -2;
+    else
+    {
+        returnCode = 0;
+        printf("Message: %s\n", message);
+    }
+
+    char *datagram = generateDatagram("OK", 3);
+
+    sendto(socketInfo.sockfd, datagram, strlen("OK") + 1 + HEADER_SIZE, 0,
+           (struct sockaddr *)&incomingConn, incomingConnSize);
+
+    printf("Sent confirmation!\n");
+
 
     close(socketInfo.sockfd);
     //freeaddrinfo(socketInfo.addrinfo);
 
-    return 0;
+    return returnCode;
 }
