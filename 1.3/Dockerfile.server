@@ -1,0 +1,5 @@
+FROM python:3.11-alpine
+WORKDIR /server
+COPY server.py /server
+# RUN "tc qdisc add dev eth0 root netem delay 1000ms 500ms loss 50%"
+ENTRYPOINT ["python3", "server.py"]
