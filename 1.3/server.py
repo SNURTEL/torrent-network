@@ -1,4 +1,5 @@
 import socket
+from sys import byteorder
 from zlib import adler32 as a32
 
 
@@ -15,20 +16,21 @@ def main():
     while True:
         data, addr = server_socket.recvfrom(1024) 
         if verify_data(data):
-            response = b"OK"
+            seq_no = data[0]
+            response = seq_no.to_bytes(1, byteorder="big") + b"OK\0"
         else:
             response = b"FAIL"
-        print(f"Received {data[:8]}[...] from {addr}; responding with {response}")
+        print(f"Received #{data[0]} from {addr}; responding with {response}")
         server_socket.sendto(response, addr)  # Odsyłanie odpowiedzi do klienta
 
 
 def verify_checksum(data):
-    # Message format: 2B lenght + 4B checksum + message
-    return (data[2:6] == a32(data[6:]).to_bytes(4, byteorder="big"))
+    # Message format: 1B seq_no + 2B lenght + 4B checksum + message
+    return (data[3:7] == a32(data[7:]).to_bytes(4, byteorder="big"))
 
 
 def verify_data(data):
-    if len(data) >= 2 and data[:2] == len(data[6:]).to_bytes(2, byteorder="big"):
+    if len(data) >= 3 and data[1:3] == len(data[7:]).to_bytes(2, byteorder="big"):
         if verify_checksum(data):
             return True
     return False
