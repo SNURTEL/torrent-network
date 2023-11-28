@@ -1,4 +1,4 @@
 FROM python:3.11-alpine
+COPY client.py /client/
 WORKDIR /client
-COPY client.py /client
 ENTRYPOINT ["python3", "client.py"]

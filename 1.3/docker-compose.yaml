@@ -4,6 +4,7 @@ services:
     container_name: z33_client_py
     build:
       dockerfile: Dockerfile.client
+
     tty: true
     networks:
       - z33_default
