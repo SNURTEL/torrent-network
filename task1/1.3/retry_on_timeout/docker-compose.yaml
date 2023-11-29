@@ -1,0 +1,28 @@
+version: "1.0"
+services:
+  client:
+    container_name: z33_client_py
+    build:
+      dockerfile: Dockerfile.client
+
+    tty: true
+    networks:
+      - z33_default
+    cap_add:
+    - NET_ADMIN
+
+  
+  server:
+    container_name: z33_server_py
+    build:
+      dockerfile: Dockerfile.server
+    tty: true
+    networks:
+      - z33_default
+    cap_add:
+    - NET_ADMIN
+
+
+networks:
+  z33_default:
+    driver: bridge

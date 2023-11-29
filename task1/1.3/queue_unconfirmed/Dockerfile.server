@@ -1,0 +1,6 @@
+FROM python:3.11-alpine
+RUN apk --upgrade add iptables iproute2
+COPY server.py start_server.sh /server/
+WORKDIR /server
+RUN chmod +x start_server.sh
+ENTRYPOINT ["./start_server.sh"]
