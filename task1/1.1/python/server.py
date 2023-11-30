@@ -5,7 +5,7 @@ from client import prep_msg
 
 def main():
     server_ip = "127.0.0.1"
-    server_port = 8080
+    server_port = 8081
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     server_socket.bind((server_ip, server_port))
@@ -25,16 +25,16 @@ def main():
         server_socket.sendto(prep_msg(response), addr)
 
 
-def verify_checksum(data):
-    # print(data[2:6])
-    # print(a32(data[6:]).to_bytes(4, byteorder="big"))
-    return data[2:6] == a32(data[6:]).to_bytes(4, byteorder="big")
+def verify_checksum(data, msg_len):
+    return data[2:6] == a32(data[6:msg_len+6]).to_bytes(4, byteorder="big")
 
 
 def verify_data(data):
     # Weryfikacja długości datagramu i zawartości
-    if len(data) >= 2 and data[:2] == len(data[6:]).to_bytes(2, byteorder="big"):
-        if verify_checksum(data):
+
+    msg_len = int.from_bytes(data[:2], "big")
+    if len(data) >= 2 and data[:2] == len(data[6:msg_len+6]).to_bytes(2, byteorder="big"):
+        if verify_checksum(data, msg_len):
             return True
     return False
 

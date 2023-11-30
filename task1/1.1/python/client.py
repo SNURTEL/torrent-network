@@ -5,7 +5,7 @@ from zlib import adler32 as a32
 
 def main(message=None):
     server_ip = "127.0.0.1"
-    server_port = 8080
+    server_port = 8081
 
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 

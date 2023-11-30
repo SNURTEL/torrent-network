@@ -6,7 +6,7 @@
 #include "networking/networking.h"
 #include "datagrams/datagram.h"
 
-#define SERVERPORT "8080"
+#define SERVERPORT "8081"
 
 int main()
 {
