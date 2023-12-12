@@ -35,14 +35,14 @@ def main():
             print(f"Connection from {addr}")
 
             # Receive data
-            data = client_socket.recv(1024)
+            data = client_socket.recv(BUFSIZE)
             if not data:
                 break
 
             # Unpack and print data
             short_num, int_num, string_data = unpack_data(data)
             print(f"Received data: Short Num: {short_num}, Int Num: {int_num}, String: {string_data}")
-        client_socket.close()
+        
 
 if __name__ == "__main__":
     main()
