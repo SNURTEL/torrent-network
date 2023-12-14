@@ -30,15 +30,21 @@ def receive_linked_list(client_socket, list_length):
     return linked_list
 
 def receive_node(client_socket):
-    _ = client_socket.recv(4)
-    short_int = client_socket.recv(2)
-    long_int = unpack_int(client_socket.recv(4))
-    fixed_string = client_socket.recv(4)
-    string_length = unpack_int(client_socket.recv(4))
-    dynamic_string = client_socket.recv(string_length)
+    raw_data = client_socket.recv(24)
+# Unpack the data
+    # raw_data = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00abc\x01\x00\x00\x00a'
+    unpacked_data = struct.unpack('<8sII4sI', raw_data)
 
-    return (short_int, long_int, fixed_string, string_length, dynamic_string)
-
+    # Extract the values
+    next_ptr = unpacked_data[0]
+    short_int = unpacked_data[1]
+    long_int = unpacked_data[2]
+    fixed_string = unpacked_data[3].decode()
+    dynamic_string_length = unpacked_data[4]
+    raw_data2 = client_socket.recv(dynamic_string_length)
+    unpacked_data2 = struct.unpack(f'<{dynamic_string_length}s', raw_data2)
+    dynamic_string = unpacked_data2[0].decode('ASCII')
+    return (short_int, long_int, fixed_string, dynamic_string_length, dynamic_string)
 
 def main():
     if len(sys.argv) < 3:
@@ -64,12 +70,13 @@ def main():
             list_length_data = client_socket.recv(4)
             if not list_length_data:
                 break
-            list_length = unpack_int(list_length_data)
+            list_length = struct.unpack('<I', list_length_data)[0]
 
             # Receive linked list
             linked_list = receive_linked_list(client_socket, list_length)
             print("Received linked list:")
-            print(linked_list)
+            for l in linked_list:
+                print(l)
         
 
 if __name__ == "__main__":
