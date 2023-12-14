@@ -33,14 +33,10 @@ node *create_node(uint16_t short_val, uint32_t int_val, char *fixed_message, cha
     return new_node;
 }
 
-char *create_message(uint32_t message_length) {
-    char *message = malloc(sizeof(char) * (message_length));
-
+void *create_message(char* message, uint32_t message_length) {
     for (int i = 0; i < message_length; i++)
         message[i] = 'a';
-    message[message_length];
-
-    return message;
+    message[message_length] = 0;
 }
 
 node *create_linked_list(uint32_t list_length) {
@@ -49,7 +45,11 @@ node *create_linked_list(uint32_t list_length) {
     node *parent_node = NULL;
 
     for (int i = 0; i < list_length; ++i) {
-        current_node = create_node(i, i * 2, "abcdef", create_message(i + 1));
+
+        char* dynamic_message = malloc(i + 1);
+        create_message(dynamic_message, i + 1);
+        current_node = create_node(i, i * 2, "abcdef", dynamic_message);
+        free(dynamic_message);
 
         if (i == 0)
             parent_node = current_node;
@@ -76,5 +76,22 @@ void print_linked_list(node *parent_node) {
         i++;
     }
 }
+
+
+void delete_linked_list(node *parent_node)
+{
+    node* current_node = parent_node;
+    node* prev_node;
+
+    while (current_node != NULL)
+    {
+        prev_node = current_node;
+        current_node = current_node->next;
+        free(prev_node);
+    }
+
+}
+
+
 
 #endif //C_LINKED_LIST_H
