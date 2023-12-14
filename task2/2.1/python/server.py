@@ -39,6 +39,7 @@ def receive_node(client_socket):
 
     return (short_int, long_int, fixed_string, string_length, dynamic_string)
 
+
 def main():
     if len(sys.argv) < 3:
         host = HOST_DEFAULT

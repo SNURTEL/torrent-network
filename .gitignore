@@ -4,3 +4,4 @@ cmake-build-debug
 __pycache__
 .idea
 task2/2.1/c/build/*
+build
