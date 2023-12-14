@@ -12,6 +12,13 @@ void print_node(node curnode)
 
 int main(int argc, char *argv[])
 {
+    printf("id: %lu\n\n", sizeof(node));
+    printf("id: %lu\n\t", sizeof(struct node*));
+    printf("id: %lu\n\t", sizeof(uint16_t));
+    printf("id: %lu\n\t", sizeof(uint32_t));
+    printf("id: %lu\n\t", sizeof(char[6]));
+    printf("id: %lu\n\t", sizeof(uint32_t));
+
     struct socketInfo socketInfo;
     uint32_t list_length = 5;
     node* linked_list = create_linked_list(list_length);
@@ -44,16 +51,16 @@ int main(int argc, char *argv[])
     }
 
     node* current_node = linked_list;
-    node* n_buf[1];
     int i = 0;
 
     while (current_node != NULL)
     {
-        n_buf[0] = current_node;
-        printf("dynamic: %s\n", n_buf[0]->dynamic_string);
+        printf("dynamic: %s\n", current_node->dynamic_string);
+        printf("id: %d, short_val: %d, int_val: %d, fixed_string: %s, dynamic_string: %s \n",
+               i, current_node->short_val, current_node->int_val, current_node->fixed_string, current_node->dynamic_string);
 
-        if (send(socketInfo.sockfd, n_buf,
-                 sizeof(node) + current_node->dynamic_string_length, 0) != -1)
+        if (send(socketInfo.sockfd, current_node,
+                 sizeof(node)+ current_node->dynamic_string_length, 0) != -1)
         {
             printf("Sent node of id %d\n", i);
         }
