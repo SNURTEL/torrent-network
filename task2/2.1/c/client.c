@@ -5,9 +5,13 @@
 #include "networking/networking.h"
 #include "data/linked_list.h"
 
-void print_node(node curnode)
+void print_node(node* curnode)
 {
-    printf("dynamic: %s\n", curnode.dynamic_string);
+    printf("short int: %d ", curnode->short_val);
+    printf("long int: %d ", curnode->int_val);
+    printf("fixed: %s ", curnode->fixed_string);
+    printf("dynamic length: %d ", curnode->dynamic_string_length);
+    printf("dynamic: %s\n", curnode->dynamic_string);
 }
 
 int main(int argc, char *argv[])
@@ -31,7 +35,7 @@ int main(int argc, char *argv[])
 
     printf("Connected to server, sending data...\n");
 
-    uint32_t buf[1];
+    /*uint32_t buf[1];
     __bswap_32(list_length); // convert to big endian
     buf[0] = list_length;
 
@@ -42,6 +46,7 @@ int main(int argc, char *argv[])
         printf("Error in sending list length, shutting down...\n");
         return -1;
     }
+    */
 
     node* current_node = linked_list;
     node* n_buf[1];
@@ -50,7 +55,7 @@ int main(int argc, char *argv[])
     while (current_node != NULL)
     {
         n_buf[0] = current_node;
-        printf("dynamic: %s\n", n_buf[0]->dynamic_string);
+        //print_node(n_buf[0]);
 
         if (send(socketInfo.sockfd, n_buf,
                  sizeof(node) + current_node->dynamic_string_length, 0) != -1)

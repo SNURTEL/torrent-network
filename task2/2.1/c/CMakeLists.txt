@@ -3,5 +3,5 @@ project(psi C)
 
 set(CMAKE_C_STANDARD 11)
 
-add_executable(client client.c)
+add_executable(client.c)
 add_executable(main main.c)
