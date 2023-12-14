@@ -5,6 +5,11 @@
 #include "networking/networking.h"
 #include "data/linked_list.h"
 
+void print_node(node curnode)
+{
+    printf("dynamic: %s\n", curnode.dynamic_string);
+}
+
 int main(int argc, char *argv[])
 {
     struct socketInfo socketInfo;
@@ -39,12 +44,13 @@ int main(int argc, char *argv[])
     }
 
     node* current_node = linked_list;
-    node n_buf[1];
+    node* n_buf[1];
     int i = 0;
 
     while (current_node != NULL)
     {
-        n_buf[0] = *current_node;
+        n_buf[0] = current_node;
+        printf("dynamic: %s\n", n_buf[0]->dynamic_string);
 
         if (send(socketInfo.sockfd, n_buf,
                  sizeof(node) + current_node->dynamic_string_length, 0) != -1)
@@ -64,3 +70,4 @@ int main(int argc, char *argv[])
 
     return 0;
 }
+
