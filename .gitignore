@@ -2,3 +2,4 @@ task1/1.1/c/cmake-build-debug
 task1/1.1/c/build
 cmake-build-debug
 __pycache__
+.idea
