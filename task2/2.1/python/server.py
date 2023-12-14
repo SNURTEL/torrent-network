@@ -14,11 +14,12 @@ def unpack_data(data):
     short_num, int_num, string_data = unpacked_data
     return short_num, int_num, string_data.decode('utf-8').rstrip('\x00')
 
+
 def main():
     if len(sys.argv) < 3:
+        port = 8000
         print(f"Using :{port}")
         host = HOST_DEFAULT
-        port = 8000
     else:
         host = sys.argv[1]
         port = int(sys.argv[2])

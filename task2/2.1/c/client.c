@@ -1,5 +1,6 @@
 #include <stdio.h>
-#include "string.h"
+#include <byteswap.h>
+#include <string.h>
 
 #include "networking/networking.h"
 #include "data/linked_list.h"
@@ -23,13 +24,14 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    printf("Connected to server, sending data...");
+    printf("Connected to server, sending data...\n");
 
     uint32_t buf[1];
+    __bswap_32(list_length); // convert to big endian
     buf[0] = list_length;
 
     if (send(socketInfo.sockfd, buf, sizeof(uint32_t), 0) != -1)
-        printf("Sent list length!");
+        printf("Sent list length!\n");
     else
     {
         printf("Error in sending list length, shutting down...\n");
