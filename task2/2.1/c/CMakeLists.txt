@@ -4,4 +4,4 @@ project(psi C)
 set(CMAKE_C_STANDARD 11)
 
 add_executable(client client.c)
-add_executable(main main.c)
+add_executable(test_linked_list test.c)

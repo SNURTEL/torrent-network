@@ -5,34 +5,21 @@
 #include "networking/networking.h"
 #include "data/linked_list.h"
 
-void print_node(node curnode)
-{
-    printf("dynamic: %s\n", curnode.dynamic_string);
-}
-
 int main(int argc, char *argv[])
 {
-    printf("id: %lu\n\n", sizeof(node));
-    printf("id: %lu\n\t", sizeof(struct node*));
-    printf("id: %lu\n\t", sizeof(uint16_t));
-    printf("id: %lu\n\t", sizeof(uint32_t));
-    printf("id: %lu\n\t", sizeof(char[6]));
-    printf("id: %lu\n\t", sizeof(uint32_t));
-
-    struct socketInfo socketInfo;
     uint32_t list_length = 5;
-    node* linked_list = create_linked_list(list_length);
 
     if (argc != 3) {
         printf("usage: hostname port\n");
         return 0;
     }
 
-    socketInfo = getSocket(argv[2], argv[1]);
+    struct socketInfo socketInfo = getSocket(argv[2], argv[1]);
 
     if (socketInfo.sockfd == -1)
     {
         printf("Failed to create socket, shutting down...\n");
+        close(socketInfo.sockfd);
         return -1;
     }
 
@@ -47,15 +34,16 @@ int main(int argc, char *argv[])
     else
     {
         printf("Error in sending list length, shutting down...\n");
+        close(socketInfo.sockfd);
         return -1;
     }
 
+    node* linked_list = create_linked_list(list_length);
     node* current_node = linked_list;
     int i = 0;
 
     while (current_node != NULL)
     {
-        printf("dynamic: %s\n", current_node->dynamic_string);
         printf("id: %d, short_val: %d, int_val: %d, fixed_string: %s, dynamic_string: %s \n",
                i, current_node->short_val, current_node->int_val, current_node->fixed_string, current_node->dynamic_string);
 
@@ -67,6 +55,8 @@ int main(int argc, char *argv[])
         else
         {
             printf("Error in sending node, shutting down...\n");
+            delete_linked_list(linked_list);
+            close(socketInfo.sockfd);
             return -1;
         }
         current_node = current_node->next;
@@ -74,6 +64,9 @@ int main(int argc, char *argv[])
     }
 
     printf("Sent the linked list!\n");
+
+    delete_linked_list(linked_list);
+    close(socketInfo.sockfd);
 
     return 0;
 }
