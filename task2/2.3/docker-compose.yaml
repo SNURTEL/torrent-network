@@ -7,9 +7,9 @@ services:
       dockerfile: Dockerfile.client
     env_file:
       - .env
-#    tty: true
-    networks:
-      - z33_default
+    tty: true
+#    networks:
+#      - z33_default
     depends_on:
     - server
 
@@ -21,12 +21,11 @@ services:
       dockerfile: Dockerfile.server
     env_file:
       - .env
-#    tty: true
-    networks:
-      - z33_default
+    tty: true
+#    networks:
+#      - z33_default
 
-
-
-networks:
-  z33_default:
-    driver: bridge
+#
+#networks:
+#  z33_default:
+#    driver: bridge
