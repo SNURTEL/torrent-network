@@ -1,17 +1,20 @@
 version: "1.0"
 services:
   client:
-    container_name: z33_client
+#    container_name: z33_client
     build:
       context: client
       dockerfile: Dockerfile.client
     env_file:
       - .env
     tty: true
-#    networks:
-#      - z33_default
+    networks:
+      - z33_default
     depends_on:
     - server
+    deploy:
+      mode: replicated
+      replicas: 6
 
   
   server:
@@ -22,10 +25,10 @@ services:
     env_file:
       - .env
     tty: true
-#    networks:
-#      - z33_default
+    networks:
+      - z33_default
 
-#
-#networks:
-#  z33_default:
-#    driver: bridge
+
+networks:
+  z33_default:
+    driver: bridge

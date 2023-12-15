@@ -6,7 +6,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
-#include <errno.h>
 #include "stdbool.h"
 
 #ifndef PSI_NETWORKING_H
@@ -47,10 +46,8 @@ struct socketInfo loopThroughAddrinfos(struct addrinfo *servinfo)
 
     if (sockfd == -1)
         printf("create socket: ERROR\n");
-    if (!isConnected) {
+    if (!isConnected)
         printf("connect socket: ERROR\n");
-        printf("%d", errno);
-    }
 
     socketInfo.sockfd = sockfd;
     socketInfo.addrinfo = current;
@@ -71,7 +68,6 @@ struct socketInfo getSocket(const char* port, const char* hostname)
     if (getaddrinfo(hostname, port, &hints, &addrinfo) != 0)
     {
         printf("getaddrinfo: ERROR\n");
-        printf("%d\n", errno);
         freeaddrinfo(addrinfo);
         return socketInfo;
     }

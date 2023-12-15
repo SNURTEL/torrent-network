@@ -1,16 +1,17 @@
 import os
 import socket
 import struct
+from concurrent.futures import ThreadPoolExecutor
 
 HOST = os.environ.get("SERVER_HOST", "0.0.0.0")
 PORT = int(os.environ.get("SERVER_PORT", "8000"))
 
 
-def receive_linked_list(client_socket, list_length):
+def receive_linked_list(client_socket, list_length, log_prefix=""):
     linked_list = []
     for _ in range(list_length):
         node = receive_node(client_socket)
-        print(node)
+        print(f"{log_prefix}{node}")
         linked_list.append(node)
     return linked_list
 
@@ -33,19 +34,19 @@ def receive_node(client_socket):
     return short_int, long_int, fixed_string, dynamic_string_length, dynamic_string
 
 
-def handle_connection(sock, addr):
+def handle_connection(sock, addr, log_prefix=""):
     # Receive data
     list_length_data = sock.recv(4)
     if not list_length_data:
         return
     list_length = struct.unpack('<I', list_length_data)[0]
-    print(f"List length is {list_length}")
+    print(f"{log_prefix}List length is {list_length}")
 
     # Receive linked list
-    linked_list = receive_linked_list(sock, list_length)
+    linked_list = receive_linked_list(sock, list_length, log_prefix=log_prefix)
     sock.close()
 
-    print("Received linked list:")
+    print(f"{log_prefix}Received linked list:")
     for l in linked_list:
         print(l)
 
@@ -57,10 +58,13 @@ def main():
         server_socket.bind((HOST, PORT))
         server_socket.listen()
 
-        while True:
-            client_socket, addr = server_socket.accept()
-            print(f"Connection from {addr}")
-            handle_connection(client_socket, addr)
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            i = 1
+            while True:
+                client_socket, addr = server_socket.accept()
+                print(f"Connection from {addr}")
+                executor.submit(handle_connection, client_socket, addr, log_prefix = f"[{i}] ")
+                i += 1
 
 
 if __name__ == "__main__":
