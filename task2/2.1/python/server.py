@@ -26,13 +26,11 @@ def receive_linked_list(client_socket, list_length):
     linked_list = []
     for _ in range(list_length):
         node = receive_node(client_socket)
-        print(node)
         linked_list.append(node)
     return linked_list
 
 def receive_node(client_socket):
     raw_data = client_socket.recv(28)  # 28
-    print(raw_data)
     unpacked_data = struct.unpack('<8sHxxI6sxxI', raw_data)
 
     # Extract the values
