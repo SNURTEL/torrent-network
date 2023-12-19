@@ -33,7 +33,7 @@ node *create_node(uint16_t short_val, uint32_t int_val, char *fixed_message, cha
     return new_node;
 }
 
-void *create_message(char* message, uint32_t message_length) {
+void create_message(char* message, uint32_t message_length) {
     for (int i = 0; i < message_length; i++)
         message[i] = 'a';
     message[message_length] = 0;
