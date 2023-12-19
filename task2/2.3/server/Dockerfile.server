@@ -1,0 +1,4 @@
+FROM python:3.11-alpine
+COPY server.py /server/
+WORKDIR /server/
+ENTRYPOINT ["python3", "server.py"]
