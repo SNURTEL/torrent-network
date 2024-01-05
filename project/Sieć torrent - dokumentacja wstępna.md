@@ -1,14 +1,17 @@
-## Autorzy projektu
+# **Projekt - Programowanie Sieciowe** 
 
-### Miłosz Mizak
-### Tomasz Owienko
-### Albert Torzewski
-### Milan Wróblewski
+## *Rekonstrukcja sieci torrentopodobnej*
 
+#### Autorzy projektu
+
+* Miłosz Mizak
+* Tomasz Owienko
+* Albert Torzewski
+* Milan Wróblewski
 
 ## 1. Założenia (architektura)
 
-Przedmiotem projektu jest skonstruowanie sieci torrentopodobnej. Jako, że jest to dość ogólny temat, postanowiliśmy poczynić założenia architektoniczne sieci.
+Przedmiotem projektu jest skonstruowanie sieci torrentopodobnej. Ze względu na dowolność rozwiązania, postanowiliśmy poczynić założenia architektoniczne sieci.
 
 W naszej wersji sieci będą występowały dwa rodzaje użytkowników - 1 koordynator oraz dowolna liczba peerów. 
 
@@ -34,7 +37,8 @@ W naszej wersji sieci będą występowały dwa rodzaje użytkowników - 1 koordy
 - Tak samo jeśli jakiś peer zapyta nas o plik/chunk którego nie mamy, raportujemy koordynatorowi
 - Peery będą inicjowały kontakt na losowym porcie, a sam transfer plików będzie odbywał się na drugim, innym porcie.
 
-Dodatkowo dla uproszczenia będziemy używać jedynie adresów IPv4. Będziemy także używali protokołu TCP. 
+Dodatkowo dla uproszczenia będziemy używać jedynie adresów IPv4.
+Do komunikacji będziemy używali protokołu TCP. 
 
 ### Raportowanie dostępności
 
@@ -52,6 +56,7 @@ Raportujemy dostępność przez wysłanie:
 - rozmiaru pliku
 - Liczby chunków
 - Fakt posiadania części bądź wszystkich chunków
+- Wektor binarny reprezentujacy listę chunków dostęnych u danego peera
 
 ## 2. Zakres realizacji
 
@@ -93,7 +98,12 @@ Błędy mogą wystąpić na wielu różnych etapach procesu. Poniżej przedstawi
 - hash chunka nie zgadza się z naszym wyliczonym hashem - pobieramy plik jeszcze raz
 - hash pliku nie zgadza się z naszym wyliczonym hashem - sprawdzamy poprawność chunków. Jeżeli któryś jest wadliwy, to pobieramy go ponownie, w przeciwnym przypadku usuwamy plik i rozpoczynamy jego pobieranie od początku
 - koordynator nie otrzymał od dłuższego czasu informacji od peera - koordynator inwaliduje wpis, aby zapobiec pobieraniu wadliwych plików
-- 
+- nieudana próba wyzłania żądanego pakiety - zaprzestanie transmijsji oczekiwanie na ponowne żądanie
+- brak pliku o żądanym hashu - przesłanie odmowy oraz przekazanie koordynatorowi informacji o nieaktualnym stanie dostępności
+- brak dostępności koordynatora - zaprzestanie rozsyłania i pobierania pakietów w celu uniknięnia utraty danych. Okresowe odpytywanie koordynatora o stan dostępności.
+- nieskuteczne wysłąnie żądnia o plik - koordynator weryfikuje dostępność peera i potencjalnie usuwa wpis jeśli peer się rozłączył
+
+
 ## 5. Przypadki testowe
 
 - pobranie pliku od jednego peera
@@ -104,8 +114,8 @@ Błędy mogą wystąpić na wielu różnych etapach procesu. Poniżej przedstawi
 - próba pobrania usuniętego pliku
     - plik usunięty z wyłączoną aplikacją
     - plik usunięty z włączoną aplikacją
-  - peer został wyłączony (koordynator inwaliduje wpis)
-  - koordynator nie żyje
+- peer został wyłączony (koordynator inwaliduje wpis)
+- koordynator nie żyje [*]
 
 ## 6. Scenariusz demonstracji
 
