@@ -98,11 +98,10 @@ Błędy mogą wystąpić na wielu różnych etapach procesu. Poniżej przedstawi
 - hash chunka nie zgadza się z naszym wyliczonym hashem - pobieramy plik jeszcze raz
 - hash pliku nie zgadza się z naszym wyliczonym hashem - sprawdzamy poprawność chunków. Jeżeli któryś jest wadliwy, to pobieramy go ponownie, w przeciwnym przypadku usuwamy plik i rozpoczynamy jego pobieranie od początku
 - koordynator nie otrzymał od dłuższego czasu informacji od peera - koordynator inwaliduje wpis, aby zapobiec pobieraniu wadliwych plików
-- nieudana próba wyzłania żądanego pakiety - zaprzestanie transmijsji oczekiwanie na ponowne żądanie
+- nieudana próba wysłania żądanego pakietu - zaprzestanie transmisji i oczekiwanie na ponowne żądanie
 - brak pliku o żądanym hashu - przesłanie odmowy oraz przekazanie koordynatorowi informacji o nieaktualnym stanie dostępności
 - brak dostępności koordynatora - zaprzestanie rozsyłania i pobierania pakietów w celu uniknięnia utraty danych. Okresowe odpytywanie koordynatora o stan dostępności.
-- nieskuteczne wysłąnie żądnia o plik - koordynator weryfikuje dostępność peera i potencjalnie usuwa wpis jeśli peer się rozłączył
-
+- nieskuteczne wysłanie żądania o plik - koordynator weryfikuje dostępność peera i potencjalnie usuwa wpis jeśli peer się rozłączył
 
 ## 5. Przypadki testowe
 
