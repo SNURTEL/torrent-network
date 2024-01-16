@@ -1,30 +1,15 @@
 import struct
-from typing import NamedTuple, Any, Union
-from collections import namedtuple
-from enum import Enum
+from typing import Union, Optional
+
+from project.messages.body import MsgType, GCHNK_body, SCHNK_body, message_body_t
 
 
-class MsgType(Enum):
-    ERROR = 0
-    APEER = 1
-    PEERS = 2
-    REPRT = 3
-    ACHNK = 4
-    CHNKS = 5
-    GCHNK = 6
-    SCHNK = 7
-
-
-GCHNK_body = namedtuple("GCHNK_body", ("msg_type", "file_hash", "chunk_num"))
-SCHNK_body = namedtuple("SCHNK_body", ("msg_type", "file_hash", "chunk_num", "chunk_hash", "content"))
-
-message_body_t = Union[GCHNK_body, SCHNK_body]
-
-
-def _pack_string(body_or_data: Union[message_body_t, bytes], msg_type: MsgType = None) -> str:
+def _pack_string(body_or_data: Union[message_body_t, bytes],
+                 msg_type: Optional[MsgType] = None,
+                 ) -> str:
     if not ((isinstance(body_or_data, message_body_t) and msg_type is None) or (
             isinstance(body_or_data, bytes) and msg_type is not None)):
-        raise ValueError("Provide either message_body_t with no msg_type arg or raw bytes with msg_type")
+        raise ValueError("Provide either message_body_t only or raw bytes with msg_type")
 
     _const_size_pack_string = {
         MsgType.GCHNK: "<Bxxx32sHxx"
@@ -46,7 +31,8 @@ def _pack_string(body_or_data: Union[message_body_t, bytes], msg_type: MsgType =
             # variable size messages
             match body:
                 case SCHNK_body():
-                    return _variable_size_pack_string_prefix[MsgType(body.msg_type)] + f"{len(body.content)}s"
+                    return _variable_size_pack_string_prefix[
+                               MsgType(body.msg_type)] + f"{len(body.content)}s"
                 case _:
                     raise NotImplementedError()
     else:
@@ -57,9 +43,8 @@ def _pack_string(body_or_data: Union[message_body_t, bytes], msg_type: MsgType =
             return _const_size_pack_string[msg_type]
         else:
             # variable size messages
-            print(len(data))
             return _variable_size_pack_string_prefix[
-                msg_type] + f"{len(data) - _variable_size_pack_size_without_suffix[msg_type]}s"
+                       msg_type] + f"{len(data) - _variable_size_pack_size_without_suffix[msg_type]}s"
 
 
 def pack(body: message_body_t) -> bytes:
@@ -92,7 +77,6 @@ if __name__ == '__main__':
     print(f"Packed:\t\t{packed}")
     unpacked = unpack(packed, msg_type=MsgType.GCHNK)
     print(f"Unpacked:\t{unpacked}")
-
 
     print("\n\nVariable size example:")
     body = SCHNK_body(
