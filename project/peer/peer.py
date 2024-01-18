@@ -3,6 +3,8 @@ import asyncio
 import math
 import shutil
 import os
+import threading
+import time
 from hashlib import sha256
 
 from project.messages.body import MsgType, GCHNK_body
@@ -78,6 +80,32 @@ async def download_file(hash: str, size: int, out_name: str):
     print(f"Wrote to {out_name}")
 
     os.remove(partial_file)
+
+
+def automatic_raporting():
+    while True:
+        try:
+            print("Background task running...")
+            time.sleep(5)
+        except KeyboardInterrupt:
+            break
+
+
+def main():
+    background_thread = threading.Thread(target=automatic_raporting)
+    background_thread.start()
+
+    try:
+        while True:
+            user_input = input("Enter a command: ")
+            # TODO implement interface
+            print(f"You entered: {user_input}")
+
+    except KeyboardInterrupt:
+        pass
+    
+    if background_thread.is_alive():
+        background_thread.join()
 
 
 if __name__ == '__main__':
