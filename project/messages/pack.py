@@ -7,7 +7,8 @@ from project.messages.body import (MsgType,
                                    message_body_t,
                                    APEER_body,
                                    REPRT_body,
-                                   ERROR_body)
+                                   ERROR_body,
+                                   PEERS_body)
 
 
 def _pack_string(body_or_data: Union[message_body_t, bytes],
@@ -20,14 +21,16 @@ def _pack_string(body_or_data: Union[message_body_t, bytes],
     _const_size_pack_string = {
         MsgType.GCHNK: "<Bxxx32sHxx",
         MsgType.APEER: "<Bxxx32s",
-        MsgType.REPRT: "<Bxxx32sBxxx",
+        MsgType.REPRT: "<Bxxx32sBxxxI",
         MsgType.ERROR: "<BBxx"
     }
     _variable_size_pack_string_prefix = {
         MsgType.SCHNK: "<Bxxx32sHxx32s",
+        MsgType.PEERS: "<Bxxx32sI"
     }
     _variable_size_pack_size_without_suffix = {
-        MsgType.SCHNK: 72
+        MsgType.SCHNK: 72,
+        MsgType.PEERS: 40,
     }
 
     if isinstance(body_or_data, message_body_t):
@@ -42,6 +45,9 @@ def _pack_string(body_or_data: Union[message_body_t, bytes],
                 case SCHNK_body():
                     return _variable_size_pack_string_prefix[
                                MsgType(body.msg_type)] + f"{len(body.content)}s"
+                case PEERS_body():
+                    return _variable_size_pack_string_prefix[
+                               MsgType(body.msg_type)] + f"{len(body.peers)}s"
                 case _:
                     raise NotImplementedError()
     else:
