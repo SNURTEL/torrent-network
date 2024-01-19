@@ -7,13 +7,13 @@ import threading
 import time
 from hashlib import sha256
 
-from project.messages.body import MsgType, GCHNK_body
+from project.messages.body import MsgType, GCHNK_body, REPRT_body
 from project.messages.pack import pack, unpack
 
 socket.socketpair()
 
 CHUNK_SIZE = 1024
-
+RESCOURSE_FOLDER = "../rescources"
 
 async def download_chunk(
         reader: asyncio.StreamReader,
@@ -81,12 +81,41 @@ async def download_file(hash: str, size: int, out_name: str):
 
     os.remove(partial_file)
 
+async def send_file_raport():
+    files = [f for f in os.listdir(RESCOURSE_FOLDER) if os.path.isfile(os.path.join(RESCOURSE_FOLDER, f))]
+    
+    to_send = []
+    for file in files:
+        file_path = os.path.join(RESCOURSE_FOLDER, file)
+        with open(file_path) as f:
+            content = f.read()
+            hash = str.encode(sha256(content).hexdigest())
+            response = pack(REPRT_body(
+                msg_type=MsgType.REPRT.value,
+                file_hash=hash,
+                availability=1,
+                file_size=len(content)
+                )
+            )
+        to_send.append(response)
+
+    try:
+        reader, writer = await asyncio.open_connection('localhost', 8000)
+        for raport in to_send:
+            writer.write(raport)
+        await writer.drain()
+    finally:
+        if writer and not writer.is_closing():
+            writer.transport.close()
+            await writer.wait_closed()
+
 
 def automatic_raporting():
+    loop = asyncio.get_event_loop()
     while True:
         try:
-            print("Background task running...")
-            time.sleep(5)
+            loop.run_until_complete(send_file_raport())
+            time.sleep(15)
         except KeyboardInterrupt:
             break
 
