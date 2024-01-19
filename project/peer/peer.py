@@ -81,22 +81,40 @@ async def download_file(hash: str, size: int, out_name: str):
 
     os.remove(partial_file)
 
-async def send_file_raport():
+async def send_file_raport(file_state):
     files = [f for f in os.listdir(RESCOURSE_FOLDER) if os.path.isfile(os.path.join(RESCOURSE_FOLDER, f))]
-    
+    new_file_state = {}
     to_send = []
+
+    for removed in filter(lambda i: i not in files, file_state.keys()):
+        response = pack(REPRT_body(
+            msg_type=MsgType.REPRT.value,
+            file_hash=file_state[removed],
+            availability=0,
+            file_size=0
+            )
+        )
+        to_send.append(response)
+
     for file in files:
         file_path = os.path.join(RESCOURSE_FOLDER, file)
         with open(file_path) as f:
             content = f.read()
             hash = str.encode(sha256(content).hexdigest())
-            response = pack(REPRT_body(
-                msg_type=MsgType.REPRT.value,
-                file_hash=hash,
-                availability=1,
-                file_size=len(content)
-                )
+        new_file_state[file] = hash
+        if file in file_state.keys() and hash == file_state[file]:
+            continue
+        if file.endswith(".partial"):
+            av = 1
+        else:
+            av = 2
+        response = pack(REPRT_body(
+            msg_type=MsgType.REPRT.value,
+            file_hash=hash,
+            availability=av,
+            file_size=len(content)
             )
+        )
         to_send.append(response)
 
     try:
@@ -108,13 +126,28 @@ async def send_file_raport():
         if writer and not writer.is_closing():
             writer.transport.close()
             await writer.wait_closed()
+    
+    return new_file_state
 
+
+def get_init_file_state():
+    files = [f for f in os.listdir(RESCOURSE_FOLDER) if os.path.isfile(os.path.join(RESCOURSE_FOLDER, f))]
+    file_state = {}
+    for file in files:
+        file_path = os.path.join(RESCOURSE_FOLDER, file)
+        with open(file_path) as f:
+            content = f.read()
+            hash = str.encode(sha256(content).hexdigest())
+        file_state[file] = hash
+    return file_state
+        
 
 def automatic_raporting():
     loop = asyncio.get_event_loop()
+    file_state = get_init_file_state()
     while True:
         try:
-            loop.run_until_complete(send_file_raport())
+            loop.run_until_complete(file_state = send_file_raport(file_state))
             time.sleep(15)
         except KeyboardInterrupt:
             break
