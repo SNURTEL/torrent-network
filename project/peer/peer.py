@@ -187,11 +187,6 @@ def main():
     # server_thread = threading.Thread(target=run_in_new_loop, args=(server_loop, run_server()))
     # server_thread.start()
 
-
-def main():
-    new_loop = asyncio.new_event_loop()
-    background_thread = threading.Thread(target=run_in_new_loop, args=(new_loop, automatic_reporting()))
-    background_thread.start()
     try:
         while True:
             user_input = input("?: ")
@@ -254,6 +249,7 @@ def help(params=None):
 
 
 if __name__ == "__main__":
+    print("Starting peer...")
     main()
     # loop = asyncio.get_event_loop()
     # loop.run_until_complete(
