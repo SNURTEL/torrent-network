@@ -102,8 +102,6 @@ async def send_file_raport(file_state):
             content = f.read()
             hash = str.encode(sha256(content).hexdigest())[:32]
         new_file_state[file] = hash
-        if file in file_state.keys() and hash == file_state[file]:
-            continue
         if file.endswith(".partial"):
             av = 1
         else:
@@ -165,27 +163,32 @@ def get_init_file_state():
     return file_state
         
 
-def automatic_raporting(loop):
+async def automatic_reporting():
     file_state = get_init_file_state()
     while True:
         try:
-            file_state = loop.run_until_complete(send_file_raport(file_state))
-            time.sleep(15)
+            file_state = await send_file_raport(file_state)
+            await asyncio.sleep(15)
         except KeyboardInterrupt:
             break
 
 
-def main():
-    loop = asyncio.get_event_loop()
-    background_thread = threading.Thread(target=automatic_raporting(loop))
-    background_thread.start()
+def run_in_new_loop(loop, coro):
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(coro)
+    loop.close()
 
+
+def main():
+    new_loop = asyncio.new_event_loop()
+    background_thread = threading.Thread(target=run_in_new_loop, args=(new_loop, automatic_reporting()))
+    background_thread.start()
     try:
         while True:
             user_input = input("Enter a command: ")
             
             if user_input == "ask_for_peers":
-                data = loop.run_until_complete(ask_for_peers("c54dedc175d993f3b632a5b5bdfc9a920d2139ee8df50e8f3219ec7a462de823"[:32]))
+                data = asyncio.run(ask_for_peers("c54dedc175d993f3b632a5b5bdfc9a920d2139ee8df50e8f3219ec7a462de823"[:32]))
                 print(data)
     except KeyboardInterrupt:
         pass
