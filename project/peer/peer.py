@@ -7,7 +7,7 @@ import threading
 import time
 from hashlib import sha256
 
-from project.messages.body import MsgType, GCHNK_body, REPRT_body
+from project.messages.body import MsgType, GCHNK_body, REPRT_body, APEER_body
 from project.messages.pack import pack, unpack
 
 socket.socketpair()
@@ -87,14 +87,14 @@ async def send_file_raport(file_state):
     to_send = []
 
     for removed in filter(lambda i: i not in files, file_state.keys()):
-        response = pack(REPRT_body(
+        raport_msg = pack(REPRT_body(
             msg_type=MsgType.REPRT.value,
             file_hash=file_state[removed],
             availability=0,
             file_size=0
             )
         )
-        to_send.append(response)
+        to_send.append(raport_msg)
 
     for file in files:
         file_path = os.path.join(RESCOURSE_FOLDER, file)
@@ -108,14 +108,14 @@ async def send_file_raport(file_state):
             av = 1
         else:
             av = 2
-        response = pack(REPRT_body(
+        raport_msg = pack(REPRT_body(
             msg_type=MsgType.REPRT.value,
             file_hash=hash,
             availability=av,
             file_size=len(content)
             )
         )
-        to_send.append(response)
+        to_send.append(raport_msg)
 
     try:
         reader, writer = await asyncio.open_connection('localhost', 8000)
