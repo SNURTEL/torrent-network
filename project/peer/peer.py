@@ -132,7 +132,7 @@ async def send_file_raport(file_state):
 async def ask_for_peers(hash):
     try:
         reader, writer = await asyncio.open_connection('localhost', 8000)
-        ask_for_peers_msg = pack(REPRT_body(
+        ask_for_peers_msg = pack(APEER_body(
             msg_type=MsgType.APEER.value,
             file_hash=hash,
             )
