@@ -123,11 +123,29 @@ async def send_file_raport(file_state):
             writer.write(raport)
         await writer.drain()
     finally:
-        if writer and not writer.is_closing():
-            writer.transport.close()
-            await writer.wait_closed()
+        writer.close()
+        await writer.wait_closed()
     
     return new_file_state
+
+
+async def ask_for_peers(hash):
+    try:
+        reader, writer = await asyncio.open_connection('localhost', 8000)
+        ask_for_peers_msg = pack(REPRT_body(
+            msg_type=MsgType.APEER.value,
+            file_hash=hash,
+            )
+        )
+        writer.write(ask_for_peers_msg)
+        await writer.drain()
+        data = await reader.readuntil(b'\0')
+        data = unpack(data, MsgType.PEERS)
+    finally:        
+        writer.close()
+        await writer.wait_closed()
+    
+    return data
 
 
 def get_init_file_state():
