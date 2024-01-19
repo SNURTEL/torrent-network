@@ -88,6 +88,9 @@ def unpack(data: bytes, msg_type: MsgType) -> message_body_t:
 
         case MsgType.ERROR:
             return ERROR_body._make(unpacked)
+        
+        case MsgType.PEERS:
+            return PEERS_body._make(unpacked)
 
         case _:
             raise NotImplementedError("Invalid message type or not implemented")
