@@ -13,7 +13,7 @@ from project.messages.pack import pack, unpack
 socket.socketpair()
 
 CHUNK_SIZE = 1024
-RESCOURSE_FOLDER = "../rescources"
+RESCOURSE_FOLDER = "/home/alzer/Studia/PSI/psi/project/rescources"
 
 async def download_chunk(
         reader: asyncio.StreamReader,
@@ -98,9 +98,9 @@ async def send_file_raport(file_state):
 
     for file in files:
         file_path = os.path.join(RESCOURSE_FOLDER, file)
-        with open(file_path) as f:
+        with open(file_path, mode='rb') as f:
             content = f.read()
-            hash = str.encode(sha256(content).hexdigest())
+            hash = str.encode(sha256(content).hexdigest())[:32]
         new_file_state[file] = hash
         if file in file_state.keys() and hash == file_state[file]:
             continue
@@ -117,19 +117,23 @@ async def send_file_raport(file_state):
         )
         to_send.append(raport_msg)
 
+    writer = None
     try:
         reader, writer = await asyncio.open_connection('localhost', 8000)
         for raport in to_send:
             writer.write(raport)
         await writer.drain()
     finally:
-        writer.close()
-        await writer.wait_closed()
+        if writer:
+            writer.close()
+            await writer.wait_closed()
     
     return new_file_state
 
 
 async def ask_for_peers(hash):
+    writer = None
+    data = None
     try:
         reader, writer = await asyncio.open_connection('localhost', 8000)
         ask_for_peers_msg = pack(APEER_body(
@@ -141,9 +145,10 @@ async def ask_for_peers(hash):
         await writer.drain()
         data = await reader.readuntil(b'\0')
         data = unpack(data, MsgType.PEERS)
-    finally:        
-        writer.close()
-        await writer.wait_closed()
+    finally:
+        if writer:
+            writer.close()
+            await writer.wait_closed()
     
     return data
 
@@ -153,34 +158,35 @@ def get_init_file_state():
     file_state = {}
     for file in files:
         file_path = os.path.join(RESCOURSE_FOLDER, file)
-        with open(file_path) as f:
+        with open(file_path, mode='rb') as f:
             content = f.read()
-            hash = str.encode(sha256(content).hexdigest())
+            hash = str.encode(sha256(content).hexdigest())[:32]
         file_state[file] = hash
     return file_state
         
 
-def automatic_raporting():
-    loop = asyncio.get_event_loop()
+def automatic_raporting(loop):
     file_state = get_init_file_state()
     while True:
         try:
-            loop.run_until_complete(file_state = send_file_raport(file_state))
+            file_state = loop.run_until_complete(send_file_raport(file_state))
             time.sleep(15)
         except KeyboardInterrupt:
             break
 
 
 def main():
-    background_thread = threading.Thread(target=automatic_raporting)
+    loop = asyncio.get_event_loop()
+    background_thread = threading.Thread(target=automatic_raporting(loop))
     background_thread.start()
 
     try:
         while True:
             user_input = input("Enter a command: ")
-            # TODO implement interface
-            print(f"You entered: {user_input}")
-
+            
+            if user_input == "ask_for_peers":
+                data = loop.run_until_complete(ask_for_peers("c54dedc175d993f3b632a5b5bdfc9a920d2139ee8df50e8f3219ec7a462de823"[:32]))
+                print(data)
     except KeyboardInterrupt:
         pass
     
