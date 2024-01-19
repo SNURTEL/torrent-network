@@ -90,12 +90,10 @@ async def send_file_report(file_state):
 
     for file in files:
         file_path = os.path.join(RESCOURSE_FOLDER, file)
-        with open(file_path) as f:
+        with open(file_path, mode='rb') as f:
             content = f.read()
-            hash = str.encode(sha256(content).hexdigest())
+            hash = str.encode(sha256(content).hexdigest())[:32]
         new_file_state[file] = hash
-        if file in file_state.keys() and hash == file_state[file]:
-            continue
         if file.endswith(".partial"):
             av = 1
         else:
@@ -105,6 +103,7 @@ async def send_file_report(file_state):
         )
         to_send.append(raport_msg)
 
+    writer = None
     try:
         writer = None
         reader, writer = await asyncio.open_connection("localhost", 8000)
@@ -120,22 +119,24 @@ async def send_file_report(file_state):
 
 
 async def ask_for_peers(hash):
+    writer = None
+    data = None
     try:
-        reader, writer = await asyncio.open_connection("localhost", 8000)
-        ask_for_peers_msg = pack(
-            APEER_body(
-                msg_type=MsgType.APEER.value,
-                file_hash=hash,
+        reader, writer = await asyncio.open_connection('localhost', 8000)
+        ask_for_peers_msg = pack(APEER_body(
+            msg_type=MsgType.APEER.value,
+            file_hash=str.encode(hash),
             )
         )
         writer.write(ask_for_peers_msg)
         await writer.drain()
-        data = await reader.readuntil(b"\0")
+        data = await reader.read()
         data = unpack(data, MsgType.PEERS)
     finally:
-        writer.close()
-        await writer.wait_closed()
-
+        if writer:
+            writer.close()
+            await writer.wait_closed()
+    
     return data
 
 
@@ -144,9 +145,9 @@ def get_init_file_state():
     file_state = {}
     for file in files:
         file_path = os.path.join(RESCOURSE_FOLDER, file)
-        with open(file_path) as f:
+        with open(file_path, mode='rb') as f:
             content = f.read()
-            hash = str.encode(sha256(content).hexdigest())
+            hash = str.encode(sha256(content).hexdigest())[:32]
         file_state[file] = hash
     return file_state
 
@@ -185,6 +186,11 @@ def main():
     server_thread = threading.Thread(target=run_in_new_loop, args=(server_loop, run_server()))
     server_thread.start()
 
+
+def main():
+    new_loop = asyncio.new_event_loop()
+    background_thread = threading.Thread(target=run_in_new_loop, args=(new_loop, automatic_reporting()))
+    background_thread.start()
     try:
         while True:
             user_input = input("?: ")
