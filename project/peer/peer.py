@@ -136,12 +136,12 @@ async def ask_for_peers(hash):
         reader, writer = await asyncio.open_connection('localhost', 8000)
         ask_for_peers_msg = pack(APEER_body(
             msg_type=MsgType.APEER.value,
-            file_hash=hash,
+            file_hash=str.encode(hash),
             )
         )
         writer.write(ask_for_peers_msg)
         await writer.drain()
-        data = await reader.readuntil(b'\0')
+        data = await reader.read()
         data = unpack(data, MsgType.PEERS)
     finally:
         if writer:
