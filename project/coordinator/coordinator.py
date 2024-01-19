@@ -8,15 +8,12 @@ from project.coordinator.data_classes import File, Peer, encode_peers, decode_pe
 
 HOST_DEFAULT = "localhost"
 files = list()
-file_timeout = 5 * 6 # in seconds
+file_timeout = 5 * 6  # in seconds
 check_interval = 6
 
 
 async def main():
-    tasks = [
-        asyncio.create_task(do_stuff_every_x_seconds(check_interval)),
-        asyncio.create_task(accept_connections())
-    ]
+    tasks = [asyncio.create_task(do_stuff_every_x_seconds(check_interval)), asyncio.create_task(accept_connections())]
 
     await asyncio.gather(*tasks)
 
@@ -44,11 +41,12 @@ async def accept_connections():
             data = await loop.sock_recv(client_socket, 72)
 
             # todo: find a way to just call unpack without the match statement
-            match int(data[0]):
-                case MsgType.APEER.value:
-                    await process_APEER(data, loop, client_socket)
-                case MsgType.REPRT.value:
-                    await process_REPRT(data, client_socket)
+            if data:
+                match int(data[0]):
+                    case MsgType.APEER.value:
+                        await process_APEER(data, loop, client_socket)
+                    case MsgType.REPRT.value:
+                        await process_REPRT(data, client_socket)
 
             print(f"Files: {files}")
 
@@ -79,15 +77,9 @@ def find_file(hash: str) -> File | None:
 
 
 def create_file(body: REPRT_body, peer_name: str):
-    peers = [Peer(
-        address=peer_name,
-        availability=int(body.availability)
-    )]
+    peers = [Peer(address=peer_name, availability=int(body.availability))]
     file = File(
-        size=int(body.file_size),
-        file_hash=body.file_hash.decode("utf-8"),
-        timeout=int(file_timeout),
-        peers=peers
+        size=int(body.file_size), file_hash=body.file_hash.decode("utf-8"), timeout=int(file_timeout), peers=peers
     )
 
     files.append(file)
@@ -100,10 +92,7 @@ def update_file(file: File, body: REPRT_body, peer_name: str):
             file.peers.remove(peer)
             break
 
-    peer = Peer(
-        address=peer_name,
-        availability=body.availability
-    )
+    peer = Peer(address=peer_name, availability=body.availability)
     file.peers.append(peer)
 
 
@@ -112,17 +101,14 @@ def create_availability_report(file: File) -> bytes:
         msg_type=MsgType.PEERS.value,
         file_hash=str.encode(file.file_hash),
         file_size=file.size,
-        peers=str.encode(encode_peers(file.peers))
+        peers=str.encode(encode_peers(file.peers)),
     )
 
     return pack(body)
 
 
 def create_error_msg() -> bytes:
-    body = ERROR_body(
-        msg_type=MsgType.ERROR.value,
-        error_code=ErrorCode.NO_FILE_FOUND.value
-    )
+    body = ERROR_body(msg_type=MsgType.ERROR.value, error_code=ErrorCode.NO_FILE_FOUND.value)
 
     return pack(body)
 
