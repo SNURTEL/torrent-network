@@ -45,7 +45,7 @@ async def handle_client(client):
         print("Close socket")
 
 
-async def run_server():
+async def run_server(port = 8888):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -63,4 +63,5 @@ async def run_server():
         server.close()
 
 
-asyncio.run(run_server())
+if __name__ == '__main__':
+    asyncio.run(run_server())

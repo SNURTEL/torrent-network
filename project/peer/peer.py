@@ -14,7 +14,9 @@ from project.messages.pack import pack, unpack
 socket.socketpair()
 
 CHUNK_SIZE = 1024
+PEER_SERVER_PORT = 8880
 RESCOURSE_FOLDER = "rescources"
+downlading = False
 
 
 async def download_chunk(
@@ -50,8 +52,9 @@ async def download_chunks(
     return chunks
 
 
-async def download_file(hash: str, size: int, out_name: str):
-    reader, writer = await asyncio.open_connection("localhost", 8000)
+async def download_file(hash: str, size: int, out_name: str, taret_port=PEER_SERVER_PORT, taret_ip="localhost"):
+    downlading = True
+    reader, writer = await asyncio.open_connection(taret_ip, taret_port)
 
     n_chunks = math.ceil(size / CHUNK_SIZE)
 
@@ -75,6 +78,7 @@ async def download_file(hash: str, size: int, out_name: str):
     print(f"Wrote to {out_name}")
 
     os.remove(partial_file)
+    downlading = False
 
 
 async def send_file_report(file_state):
@@ -178,14 +182,14 @@ def run_in_new_loop(loop, coro):
     loop.close()
 
 
-def main():
+def main(port):
     report_loop = asyncio.new_event_loop()
     report_thread = threading.Thread(target=run_in_new_loop, args=(report_loop, automatic_reporting()))
     report_thread.start()
 
-    # server_loop = asyncio.new_event_loop()
-    # server_thread = threading.Thread(target=run_in_new_loop, args=(server_loop, run_server()))
-    # server_thread.start()
+    server_loop = asyncio.new_event_loop()
+    server_thread = threading.Thread(target=run_in_new_loop, args=(server_loop, run_server(port=port)))
+    server_thread.start()
 
     try:
         while True:
@@ -196,11 +200,11 @@ def main():
     except KeyboardInterrupt:
         pass
 
-    if report_thread.is_alive():
+    if report_thread.is_alive() and not downlading:
         report_thread.join()
 
-    # if server_thread.is_alive():
-    #     server_thread.join()
+    if server_thread.is_alive():
+        server_thread.join()
 
 
 def main_menu(user_input):
@@ -216,7 +220,8 @@ def main_menu(user_input):
                 main_menu("help download")
             else:
                 print(f"Downloading file{params}")
-                asyncio.run(download_file(params[0][:32], 736052, params[1] if params[1] else "out.jpeg"))
+                # asyncio.run(download_file(params[0][:32], 736052, params[1] if params[1] else "out.jpeg"))
+                asyncio.run(download_file(params[0][:32], 736052, params[1], params[2]))
         case "help":
             help(params)
         case "exit":
@@ -231,7 +236,7 @@ def help(params=None):
         print("Help for command:", params)
         match params:
             case "download":
-                print("download <file_name> - download file <file_name> ")
+                print("download <file_hash> <output_name> <source_port> <source_ip> - download file form peer")
             case "list":
                 print("list <file_name> - list files containing <file_name>")
             case "help":
@@ -250,7 +255,10 @@ def help(params=None):
 
 if __name__ == "__main__":
     print("Starting peer...")
-    main()
+    port = int(input("Port: "))
+    if port == "":
+        port = PEER_SERVER_PORT
+    main(port)
     # loop = asyncio.get_event_loop()
     # loop.run_until_complete(
     #     download_file("c54dedc175d993f3b632a5b5bdfc9a920d2139ee8df50e8f3219ec7a462de823"[:32], 736052, "out.jpeg")
