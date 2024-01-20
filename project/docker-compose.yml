@@ -6,18 +6,37 @@ services:
     build:
       context: .
       dockerfile: coordinator.Dockerfile
+    cap_add:
+    - NET_ADMIN
     networks:
       network:
         ipv4_address: 10.5.0.10
 
-  peer:
-    container_name: psi_peer
+  peer1:
+    container_name: psi_peer1
     build:
       context: .
       dockerfile: peer.Dockerfile
+      args:
+        ADDR: '10.5.0.21'
+    cap_add:
+    - NET_ADMIN
     networks:
       network:
-        ipv4_address: 10.5.0.20
+        ipv4_address: 10.5.0.21
+
+  peer2:
+    container_name: psi_peer2
+    build:
+      context: .
+      dockerfile: peer.Dockerfile
+      args:
+        ADDR: '10.5.0.22'
+    cap_add:
+    - NET_ADMIN
+    networks:
+      network:
+        ipv4_address: 10.5.0.22
 
   dummy1:
     container_name: psi_dummy1
@@ -26,6 +45,8 @@ services:
       dockerfile: dummy.Dockerfile
       args:
         ADDR: '10.5.0.31'
+    cap_add:
+    - NET_ADMIN
     networks:
       network:
         ipv4_address: 10.5.0.31
@@ -37,6 +58,8 @@ services:
       dockerfile: dummy.Dockerfile
       args:
         ADDR: '10.5.0.32'
+    cap_add:
+    - NET_ADMIN
     networks:
       network:
         ipv4_address: 10.5.0.32
@@ -48,6 +71,8 @@ services:
       dockerfile: dummy.Dockerfile
       args:
         ADDR: '10.5.0.33'
+    cap_add:
+    - NET_ADMIN
     networks:
       network:
         ipv4_address: 10.5.0.33

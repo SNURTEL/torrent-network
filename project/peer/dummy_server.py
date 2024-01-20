@@ -1,3 +1,4 @@
+import json
 import os
 import random
 import sys
@@ -5,12 +6,12 @@ import asyncio, socket
 from hashlib import sha256
 
 from project.messages.pack import pack, unpack
-from project.messages.body import SCHNK_body, MsgType
+from project.messages.body import SCHNK_body, MsgType, CHNKS_body
 
 CHUNK_SIZE = 1024
 
 
-async def _handle_client(client):
+async def _handle_client(client, client_addr):
     loop = asyncio.get_event_loop()
 
     while msg_type_byte := await loop.sock_recv(client, 1):
@@ -19,7 +20,7 @@ async def _handle_client(client):
             case MsgType.GCHNK:
                 rest = await loop.sock_recv(client, 72 + CHUNK_SIZE - 1)
                 msg = unpack(msg_type_byte + rest, MsgType.GCHNK)
-                print(f"Got GCHNK, chunk_num={msg.chunk_num}")
+                print(f"Got GCHNK from {client_addr} chunk_num={msg.chunk_num}")
 
                 with open("source.jpg", mode='rb') as fp:
                     fp.seek(msg.chunk_num * CHUNK_SIZE)
@@ -36,22 +37,32 @@ async def _handle_client(client):
                 ))
                 await loop.sock_sendall(client, response)
 
-            # case MsgType.ACHNK:
-            #     with open('source.jpg', mode='rb') as fp:
-            #         file_bytes = fp.read()
-            #     padded = (file_bytes + b'\0' * (CHUNK_SIZE - (len(file_bytes) % CHUNK_SIZE)))
-            #     file_chunks = [padded[i:i + CHUNK_SIZE] for i in range(0, len(padded), CHUNK_SIZE)]
-            #     chunk_dict = {
-            #         sha256(chunk).hexdigest()[:32]: random.choice([8001, 8002, 8003]) for chunk in file_chunks
-            #     }
+            case MsgType.ACHNK:
+                rest = await loop.sock_recv(client, 36 - 1)
+                msg = unpack(msg_type_byte + rest, MsgType.ACHNK)
+                print(f"Got ACHNK from {client_addr}")
+
+                with open('source.jpg.fileinfo', mode='rb') as fp:
+                    fileinfo = json.load(fp)
+                num_chunks = fileinfo['num_chunks']
+                avail = random.sample(list(range(num_chunks)), k=num_chunks//2)
+
+                response = pack(CHNKS_body(
+                    msg_type=MsgType.CHNKS.value,
+                    file_hash=msg.file_hash,
+                    num_chunks=num_chunks//2,
+                    availability=b''.join([int.to_bytes(num, length=4, byteorder='little', signed=False) for num in avail])
+                ))
+                await loop.sock_sendall(client, response)
+
 
             case _:
                 raise ValueError("Unknown message type")
 
 
-async def handle_client(client):
+async def handle_client(client, client_addr):
     try:
-        await _handle_client(client)
+        await _handle_client(client, client_addr)
     finally:
         client.close()
         print("Close socket")
@@ -68,8 +79,8 @@ async def run_server(addr: str, port_num: int):
         loop = asyncio.get_event_loop()
 
         while True:
-            client, _ = await loop.sock_accept(server)
-            loop.create_task(handle_client(client))
+            client, client_addr = await loop.sock_accept(server)
+            loop.create_task(handle_client(client, client_addr))
     finally:
         server.shutdown(0)
         server.close()

@@ -52,6 +52,8 @@ async def accept_connections():
                 case MsgType.REPRT.value:
                     await process_REPRT(data, client_socket)
 
+            client_socket.close()
+
             print(f"Files: {files}")
 
 
@@ -148,6 +150,7 @@ async def process_APEER(data, loop, client_socket):
 
 
 async def process_REPRT(data, client_socket):
+    print("Got REPRT")
     unpacked = unpack(data=data, msg_type=MsgType.REPRT)
     reported_file = find_file(unpacked.file_hash.decode("utf-8"))
     if reported_file is None:
@@ -159,9 +162,9 @@ async def process_REPRT(data, client_socket):
 if __name__ == "__main__":
     files.append(
         File(size=736052, file_hash="c54dedc175d993f3b632a5b5bdfc9a920d2139ee8df50e8f3219ec7a462de823"[:32], timeout=300, peers=[
-            Peer(f"10.5.0.31", availability=2),
-            Peer(f"10.5.0.32", availability=2),
-            Peer(f"10.5.0.33", availability=2),
+            Peer(f"10.5.0.31", availability=1),
+            Peer(f"10.5.0.32", availability=1),
+            Peer(f"10.5.0.33", availability=1),
         ])
     )
 
