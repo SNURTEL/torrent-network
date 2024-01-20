@@ -1,3 +1,4 @@
+import os
 import random
 import sys
 import asyncio, socket
@@ -56,11 +57,11 @@ async def handle_client(client):
         print("Close socket")
 
 
-async def run_server(port_num: int):
+async def run_server(addr: str, port_num: int):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server.bind(('localhost', port_num))
+        server.bind((addr, port_num))
         server.listen(8)
         server.setblocking(False)
 
@@ -74,5 +75,5 @@ async def run_server(port_num: int):
         server.close()
 
 if __name__ == '__main__':
-    port_num = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
-    asyncio.run(run_server(port_num))
+    addr = sys.argv[1] if len(sys.argv) > 1 else '127.0.0.1'
+    asyncio.run(run_server(addr, 8000))

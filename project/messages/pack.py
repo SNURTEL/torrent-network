@@ -67,7 +67,6 @@ def pack(body: message_body_t) -> bytes:
 
 
 def unpack(data: bytes, msg_type: MsgType) -> message_body_t:
-    print(_pack_string(data, msg_type=msg_type))
     unpacked = struct.unpack(_pack_string(data, msg_type=msg_type), data)
 
     # assume first field is always message type

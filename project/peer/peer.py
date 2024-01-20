@@ -4,10 +4,12 @@ import asyncio
 import math
 import shutil
 import os
+import sys
+import time
 from hashlib import sha256
 
 from project.coordinator.data_classes import Peer, decode_peers
-from project.messages.body import MsgType, GCHNK_body, APEER_body
+from project.messages.body import MsgType, GCHNK_body, APEER_body, ErrorCode
 from project.messages.pack import pack, unpack
 
 socket.socketpair()
@@ -17,11 +19,19 @@ CHUNK_SIZE = 1024
 async def _query_coordinator_for_file_peers(
         file_hash: str
 ) -> list[Peer]:
-    reader, writer = await asyncio.open_connection('localhost', 8000)
+    reader, writer = await asyncio.open_connection('10.5.0.10', 8000)
     apeer_msg = pack(APEER_body(msg_type=MsgType.APEER.value, file_hash=str.encode(file_hash)))
     writer.write(apeer_msg)
     await writer.drain()
-    prefix = await reader.readexactly(n=44)
+    msg_type = await reader.readexactly(n=1)
+    if int.from_bytes(msg_type, byteorder='little', signed=False) == MsgType.ERROR.value:
+        body = await reader.readexactly(n=3)
+        error_msg = unpack(msg_type+body, msg_type=MsgType.ERROR)
+        if error_msg.error_code == ErrorCode.NO_FILE_FOUND.value:
+            raise ValueError("File not found")
+        else:
+            raise ValueError("Error downloading file")
+    prefix = msg_type + await reader.readexactly(n=43)
     num_peers = int.from_bytes(prefix[-4:], byteorder='little', signed=False)
     peers_bytes = await reader.readexactly(n=num_peers*8)
     peers_response = unpack(prefix + peers_bytes, MsgType.PEERS)
@@ -59,11 +69,12 @@ async def download_file(hash: str, size: int, out_name: str):
 
     retry_queue = asyncio.Queue()
 
-    peers = await _query_coordinator_for_file_peers(hash)
-    peers = [  # override for testing purposes
-        Peer(f"127.0.0.1:{port}", availability=2) for port in [8001, 8002, 8003]
-    ]
-    num_peers = len(peers)
+    try:
+        peers = await _query_coordinator_for_file_peers(hash)
+        num_peers = len(peers)
+    except ValueError as e:
+        print(e)
+        sys.exit(1)
 
     # for now assume all peers have the entire file
     num_chunks = math.ceil(size / CHUNK_SIZE)
@@ -102,17 +113,17 @@ async def download_file(hash: str, size: int, out_name: str):
         n_chunks = math.ceil(size / CHUNK_SIZE)
 
         await asyncio.gather(
-            *[connect_and_save_chunks('localhost', port, chunk_nums, ['B' * 32 for _ in range(n_chunks)]) for
-              port, chunk_nums in zip(range(8001, 8004), chunk_num_mapping)])
+            *[connect_and_save_chunks(peer.address, 8000, chunk_nums, ['B' * 32 for _ in range(n_chunks)]) for
+              peer, chunk_nums in zip(peers, chunk_num_mapping)])
 
         while not retry_queue.empty():
             chunk_num, chunk_hash = await retry_queue.get()
-            await asyncio.create_task(connect_and_save_chunks('localhost', random.choice([8001, 8002, 8003]), [chunk_num], [chunk_hash]))
+            await asyncio.create_task(connect_and_save_chunks(random.choice(peers).address, 8000, [chunk_num], [chunk_hash]))
 
         with open(partial_file, mode='rb') as fsource:
             with open(out_name, mode='wb') as fdest:
                 shutil.copyfileobj(fsource, fdest)
-                fdest.seek(-(size % CHUNK_SIZE), os.SEEK_END)
+                fdest.seek(-(CHUNK_SIZE-(size % CHUNK_SIZE)), os.SEEK_END)
                 fdest.truncate()
         print(f"Wrote to {out_name}")
     finally:
@@ -120,6 +131,20 @@ async def download_file(hash: str, size: int, out_name: str):
 
 
 if __name__ == '__main__':
+    time.sleep(3)
     loop = asyncio.get_event_loop()
     loop.run_until_complete(
-        download_file("c54dedc175d993f3b632a5b5bdfc9a920d2139ee8df50e8f3219ec7a462de823"[:32], 736052, 'out.jpeg'))
+        download_file("c54dedc175d993f3b632a5b5bdfc9a920d2139ee8df50e8f3219ec7a462de823"[:32], 736052, 'out.jpg'))
+
+    with open('out.jpg', mode='rb') as fp:
+        out_bytes = fp.read()
+    with open('source.jpg', mode='rb') as fp:
+        source_bytes = fp.read()
+
+    if not sha256(out_bytes).hexdigest()[:32] == sha256(source_bytes).hexdigest()[:32]:
+        print(f"Hash vs expected:\n{sha256(out_bytes).hexdigest()[:32]}\n{sha256(source_bytes).hexdigest()[:32]}")
+        time.sleep(9999999)
+        sys.exit(1)
+    print("Hash is OK!")
+
+    time.sleep(9999999)

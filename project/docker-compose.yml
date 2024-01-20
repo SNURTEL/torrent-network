@@ -1,0 +1,62 @@
+version: "2"
+
+services:
+  coordinator:
+    container_name: psi_coordinator
+    build:
+      context: .
+      dockerfile: coordinator.Dockerfile
+    networks:
+      network:
+        ipv4_address: 10.5.0.10
+
+  peer:
+    container_name: psi_peer
+    build:
+      context: .
+      dockerfile: peer.Dockerfile
+    networks:
+      network:
+        ipv4_address: 10.5.0.20
+
+  dummy1:
+    container_name: psi_dummy1
+    build:
+      context: .
+      dockerfile: dummy.Dockerfile
+      args:
+        ADDR: '10.5.0.31'
+    networks:
+      network:
+        ipv4_address: 10.5.0.31
+
+  dummy2:
+    container_name: psi_dummy2
+    build:
+      context: .
+      dockerfile: dummy.Dockerfile
+      args:
+        ADDR: '10.5.0.32'
+    networks:
+      network:
+        ipv4_address: 10.5.0.32
+
+  dummy3:
+    container_name: psi_dummy3
+    build:
+      context: .
+      dockerfile: dummy.Dockerfile
+      args:
+        ADDR: '10.5.0.33'
+    networks:
+      network:
+        ipv4_address: 10.5.0.33
+
+
+networks:
+  network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.5.0.0/16
+          gateway: 10.5.0.1

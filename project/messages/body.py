@@ -16,6 +16,7 @@ class MsgType(Enum):
 
 class ErrorCode(Enum):
     NO_FILE_FOUND = 0
+    INTERNAL_ERROR = 1
 
 
 GCHNK_body = namedtuple("GCHNK_body", ("msg_type", "file_hash", "chunk_num"))
