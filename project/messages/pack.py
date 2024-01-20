@@ -1,7 +1,14 @@
 import struct
 from typing import Union, Optional
 
-from project.messages.body import MsgType, GCHNK_body, SCHNK_body, message_body_t
+from project.messages.body import (MsgType,
+                                   GCHNK_body,
+                                   SCHNK_body,
+                                   message_body_t,
+                                   APEER_body,
+                                   REPRT_body,
+                                   ERROR_body,
+                                   PEERS_body)
 
 
 def _pack_string(body_or_data: Union[message_body_t, bytes],
@@ -12,19 +19,24 @@ def _pack_string(body_or_data: Union[message_body_t, bytes],
         raise ValueError("Provide either message_body_t only or raw bytes with msg_type")
 
     _const_size_pack_string = {
-        MsgType.GCHNK: "<Bxxx32sHxx"
+        MsgType.GCHNK: "<Bxxx32sHxx",
+        MsgType.APEER: "<Bxxx32s",
+        MsgType.REPRT: "<Bxxx32sBxxxI",
+        MsgType.ERROR: "<BBxx"
     }
     _variable_size_pack_string_prefix = {
-        MsgType.SCHNK: "<Bxxx32sHxx32s"
+        MsgType.SCHNK: "<Bxxx32sHxx32s",
+        MsgType.PEERS: "<Bxxx32sI"
     }
     _variable_size_pack_size_without_suffix = {
-        MsgType.SCHNK: 72
+        MsgType.SCHNK: 72,
+        MsgType.PEERS: 40,
     }
 
     if isinstance(body_or_data, message_body_t):
         # deduce from message namedtuple type
         body: message_body_t = body_or_data
-        if isinstance(body, (GCHNK_body,)):
+        if isinstance(body, (GCHNK_body, APEER_body, REPRT_body, ERROR_body)):
             # constant size messages
             return _const_size_pack_string[MsgType(body.msg_type)]
         else:
@@ -33,12 +45,15 @@ def _pack_string(body_or_data: Union[message_body_t, bytes],
                 case SCHNK_body():
                     return _variable_size_pack_string_prefix[
                                MsgType(body.msg_type)] + f"{len(body.content)}s"
+                case PEERS_body():
+                    return _variable_size_pack_string_prefix[
+                               MsgType(body.msg_type)] + f"{len(body.peers)}s"
                 case _:
                     raise NotImplementedError()
     else:
         # deduce from explicitly given message type enum val and bytes length
         data = body_or_data
-        if msg_type in (MsgType.GCHNK,):
+        if msg_type in (MsgType.GCHNK, MsgType.APEER, MsgType.REPRT, MsgType.ERROR):
             # constant size messages
             return _const_size_pack_string[msg_type]
         else:
@@ -63,6 +78,15 @@ def unpack(data: bytes, msg_type: MsgType) -> message_body_t:
 
         case MsgType.SCHNK:
             return SCHNK_body._make(unpacked)
+
+        case MsgType.APEER:
+            return APEER_body._make(unpacked)
+
+        case MsgType.REPRT:
+            return REPRT_body._make(unpacked)
+
+        case MsgType.ERROR:
+            return ERROR_body._make(unpacked)
 
         case _:
             raise NotImplementedError("Invalid message type or not implemented")
