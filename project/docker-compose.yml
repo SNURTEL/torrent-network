@@ -1,0 +1,87 @@
+version: "2"
+
+services:
+  coordinator:
+    container_name: psi_coordinator
+    build:
+      context: .
+      dockerfile: coordinator.Dockerfile
+    cap_add:
+    - NET_ADMIN
+    networks:
+      network:
+        ipv4_address: 10.5.0.10
+
+  peer1:
+    container_name: psi_peer1
+    build:
+      context: .
+      dockerfile: peer.Dockerfile
+      args:
+        ADDR: '10.5.0.21'
+    cap_add:
+    - NET_ADMIN
+    networks:
+      network:
+        ipv4_address: 10.5.0.21
+
+  peer2:
+    container_name: psi_peer2
+    build:
+      context: .
+      dockerfile: peer.Dockerfile
+      args:
+        ADDR: '10.5.0.22'
+    cap_add:
+    - NET_ADMIN
+    networks:
+      network:
+        ipv4_address: 10.5.0.22
+
+  dummy1:
+    container_name: psi_dummy1
+    build:
+      context: .
+      dockerfile: dummy.Dockerfile
+      args:
+        ADDR: '10.5.0.31'
+    cap_add:
+    - NET_ADMIN
+    networks:
+      network:
+        ipv4_address: 10.5.0.31
+
+  dummy2:
+    container_name: psi_dummy2
+    build:
+      context: .
+      dockerfile: dummy.Dockerfile
+      args:
+        ADDR: '10.5.0.32'
+    cap_add:
+    - NET_ADMIN
+    networks:
+      network:
+        ipv4_address: 10.5.0.32
+
+  dummy3:
+    container_name: psi_dummy3
+    build:
+      context: .
+      dockerfile: dummy.Dockerfile
+      args:
+        ADDR: '10.5.0.33'
+    cap_add:
+    - NET_ADMIN
+    networks:
+      network:
+        ipv4_address: 10.5.0.33
+
+
+networks:
+  network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.5.0.0/16
+          gateway: 10.5.0.1

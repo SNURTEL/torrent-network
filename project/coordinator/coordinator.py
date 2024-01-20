@@ -1,12 +1,14 @@
+import random
 import socket
 import sys
 import asyncio
+from hashlib import sha256
 
 from project.messages.pack import unpack, pack
 from project.messages.body import MsgType, ErrorCode, PEERS_body, ERROR_body, REPRT_body
 from project.coordinator.data_classes import File, Peer, encode_peers, decode_peers
 
-HOST_DEFAULT = "localhost"
+HOST_DEFAULT = "10.5.0.10"
 files = list()
 file_timeout = 5 * 6 # in seconds
 check_interval = 6
@@ -49,6 +51,8 @@ async def accept_connections():
                     await process_APEER(data, loop, client_socket)
                 case MsgType.REPRT.value:
                     await process_REPRT(data, client_socket)
+
+            client_socket.close()
 
             print(f"Files: {files}")
 
@@ -112,7 +116,8 @@ def create_availability_report(file: File) -> bytes:
         msg_type=MsgType.PEERS.value,
         file_hash=str.encode(file.file_hash),
         file_size=file.size,
-        peers=str.encode(encode_peers(file.peers))
+        num_peers=len(file.peers),
+        peers=encode_peers(file.peers)
     )
 
     return pack(body)
@@ -123,24 +128,29 @@ def create_error_msg() -> bytes:
         msg_type=MsgType.ERROR.value,
         error_code=ErrorCode.NO_FILE_FOUND.value
     )
-
     return pack(body)
 
 
 async def process_APEER(data, loop, client_socket):
     unpacked = unpack(data=data, msg_type=MsgType.APEER)
     requested_file = find_file(unpacked.file_hash.decode("utf-8"))
-    if requested_file is None:
-        error_msg = create_error_msg()
-        await loop.sock_sendall(sock=client_socket, data=error_msg)
-        print("No file found - sent ERROR message")
-    else:
-        report = create_availability_report(requested_file)
-        await loop.sock_sendall(sock=client_socket, data=report)
-        print("Sent PEERS")
+    try:
+        if requested_file is None:
+            error_msg = create_error_msg()
+            await loop.sock_sendall(sock=client_socket, data=error_msg)
+            print("No file found - sent ERROR message")
+        else:
+            report = create_availability_report(requested_file)
+            await loop.sock_sendall(sock=client_socket, data=report)
+            print("Sent PEERS")
+    except Exception as e:
+        print(e)
+        await loop.sock_sendall(sock=client_socket, data=pack(ERROR_body(msg_type=MsgType.ERROR.value, error_code=1)))
+
 
 
 async def process_REPRT(data, client_socket):
+    print("Got REPRT")
     unpacked = unpack(data=data, msg_type=MsgType.REPRT)
     reported_file = find_file(unpacked.file_hash.decode("utf-8"))
     if reported_file is None:
@@ -150,4 +160,12 @@ async def process_REPRT(data, client_socket):
 
 
 if __name__ == "__main__":
+    files.append(
+        File(size=736052, file_hash="c54dedc175d993f3b632a5b5bdfc9a920d2139ee8df50e8f3219ec7a462de823"[:32], timeout=300, peers=[
+            Peer(f"10.5.0.31", availability=1),
+            Peer(f"10.5.0.32", availability=1),
+            Peer(f"10.5.0.33", availability=1),
+        ])
+    )
+
     asyncio.run(main())
