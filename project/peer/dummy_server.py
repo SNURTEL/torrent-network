@@ -1,5 +1,4 @@
 import json
-import os
 import random
 import sys
 import asyncio, socket
@@ -9,6 +8,14 @@ from project.messages.pack import pack, unpack
 from project.messages.body import SCHNK_body, MsgType, CHNKS_body
 
 CHUNK_SIZE = 1024
+
+"""
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! THIS IS A MOCK PEER SCRIPT  !!
+!! DO NOT IMPORT THIS ANYWHERE !!
+!! IT WILL NOT WORK!           !!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+"""
 
 
 async def _handle_client(client, client_addr):
@@ -45,16 +52,16 @@ async def _handle_client(client, client_addr):
                 with open('source.jpg.fileinfo', mode='rb') as fp:
                     fileinfo = json.load(fp)
                 num_chunks = fileinfo['num_chunks']
-                avail = random.sample(list(range(num_chunks)), k=num_chunks//2)
+                avail = random.sample(list(range(num_chunks)), k=num_chunks // 2)
 
                 response = pack(CHNKS_body(
                     msg_type=MsgType.CHNKS.value,
                     file_hash=msg.file_hash,
-                    num_chunks=num_chunks//2,
-                    availability=b''.join([int.to_bytes(num, length=4, byteorder='little', signed=False) for num in avail])
+                    num_chunks=num_chunks // 2,
+                    availability=b''.join(
+                        [int.to_bytes(num, length=4, byteorder='little', signed=False) for num in avail])
                 ))
                 await loop.sock_sendall(client, response)
-
 
             case _:
                 raise ValueError("Unknown message type")
@@ -84,6 +91,7 @@ async def run_server(addr: str, port_num: int):
     finally:
         server.shutdown(0)
         server.close()
+
 
 if __name__ == '__main__':
     addr = sys.argv[1] if len(sys.argv) > 1 else '127.0.0.1'
