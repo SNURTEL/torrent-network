@@ -31,7 +31,7 @@ async def _handle_client(client):
                     msg_type=MsgType.SCHNK.value,
                     file_hash=msg.file_hash,
                     chunk_num=msg.chunk_num,
-                    chunk_hash=str.encode(sha256(response_content).hexdigest()),
+                    chunk_hash=str.encode(sha256(response_content).hexdigest()[:32]),
                     content=response_content
                 ))
                 await loop.sock_sendall(client, response)

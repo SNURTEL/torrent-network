@@ -1,3 +1,4 @@
+import json
 import random
 import socket
 import asyncio
@@ -54,15 +55,17 @@ async def _download_chunk(
     assert unpacked.msg_type == MsgType.SCHNK.value
     assert unpacked.chunk_num == chunk_num
     assert unpacked.file_hash == file_hash_bytes
-
-    if (decoded := unpacked.chunk_hash) != (calculated := str.encode(sha256(unpacked.content).hexdigest()[:32])):
-        raise ValueError(f"Chunk ${unpacked.chunk_num} hash not matching: got {decoded}, expected {calculated[:32]}")
+    assert unpacked.chunk_hash == str.encode(sha256(unpacked.content).hexdigest()[:32])
 
     return unpacked.content
 
 
-async def download_file(hash: str, size: int, out_name: str):
+async def download_file(fileinfo: dict, out_name: str):
     partial_file = f"{out_name}.partial"
+
+    size = fileinfo['file_size']
+    file_hash = fileinfo['file_hash']
+    chunk_hashes = fileinfo['chunk_hashes']
 
     with open(partial_file, "wb") as fp:
         fp.truncate(size)
@@ -70,7 +73,7 @@ async def download_file(hash: str, size: int, out_name: str):
     retry_queue = asyncio.Queue()
 
     try:
-        peers = await _query_coordinator_for_file_peers(hash)
+        peers = await _query_coordinator_for_file_peers(file_hash)
         num_peers = len(peers)
     except ValueError as e:
         print(e)
@@ -80,6 +83,7 @@ async def download_file(hash: str, size: int, out_name: str):
     num_chunks = math.ceil(size / CHUNK_SIZE)
     chunks_per_peer = math.ceil(num_chunks / num_peers)
     chunk_num_mapping = [list(range(num_chunks))[i:i + chunks_per_peer] for i in range(0, num_chunks, chunks_per_peer)]
+    chunk_hash_mapping = [chunk_hashes[i:i + chunks_per_peer] for i in range(0, num_chunks, chunks_per_peer)]
 
     async def _download_and_save_chunk(
             chunk_num: int,
@@ -89,6 +93,8 @@ async def download_file(hash: str, size: int, out_name: str):
     ):
         try:
             res = await _download_chunk(reader, writer, chunk_hash, chunk_num)
+            if sha256(res).hexdigest()[:32] != chunk_hash:
+                raise ValueError(f"Chunk {chunk_num} hash not matching")
             if random.random() < 0.1:
                 raise Exception("Random error")
             with open(partial_file, mode='r+b') as fp:
@@ -105,16 +111,17 @@ async def download_file(hash: str, size: int, out_name: str):
             chunk_hashes: list[str]):
         print(f"Connect to {host}:{port} and download {chunk_nums}")
         reader, writer = await asyncio.open_connection(host, port)
-        for coro in [_download_and_save_chunk(chunk_num, "A" * 32, reader, writer) for chunk_num, chunk_hash in
+        for coro in [_download_and_save_chunk(chunk_num, chunk_hash, reader, writer) for chunk_num, chunk_hash in
                      zip(chunk_nums, chunk_hashes)]:
             await coro
 
     try:
         n_chunks = math.ceil(size / CHUNK_SIZE)
+        print(n_chunks)
 
         await asyncio.gather(
-            *[connect_and_save_chunks(peer.address, 8000, chunk_nums, ['B' * 32 for _ in range(n_chunks)]) for
-              peer, chunk_nums in zip(peers, chunk_num_mapping)])
+            *[connect_and_save_chunks(peer.address, 8000, chunk_num_list, chunk_hash_list) for
+              peer, chunk_num_list, chunk_hash_list in zip(peers, chunk_num_mapping, chunk_hash_mapping)])
 
         while not retry_queue.empty():
             chunk_num, chunk_hash = await retry_queue.get()
@@ -125,6 +132,14 @@ async def download_file(hash: str, size: int, out_name: str):
                 shutil.copyfileobj(fsource, fdest)
                 fdest.seek(-(CHUNK_SIZE-(size % CHUNK_SIZE)), os.SEEK_END)
                 fdest.truncate()
+
+        with open('out.jpg', mode='rb') as fp:
+            out_bytes = fp.read()
+
+        if not sha256(out_bytes).hexdigest()[:32] == file_hash:
+            print(f"File hash vs expected:\n{sha256(out_bytes).hexdigest()[:32]}\n{file_hash}")
+            raise ValueError(f"File hash vs expected:\n{sha256(out_bytes).hexdigest()[:32]}\n{file_hash}")
+
         print(f"Wrote to {out_name}")
     finally:
         os.remove(partial_file)
@@ -133,18 +148,14 @@ async def download_file(hash: str, size: int, out_name: str):
 if __name__ == '__main__':
     time.sleep(3)
     loop = asyncio.get_event_loop()
+
+    FILE = 'source.jpg'
+
+    with open(f"{FILE}.fileinfo", mode='r') as fp:
+        fileinfo = json.load(fp)
+
     loop.run_until_complete(
-        download_file("c54dedc175d993f3b632a5b5bdfc9a920d2139ee8df50e8f3219ec7a462de823"[:32], 736052, 'out.jpg'))
+        download_file(fileinfo, 'out.jpg'))
 
-    with open('out.jpg', mode='rb') as fp:
-        out_bytes = fp.read()
-    with open('source.jpg', mode='rb') as fp:
-        source_bytes = fp.read()
-
-    if not sha256(out_bytes).hexdigest()[:32] == sha256(source_bytes).hexdigest()[:32]:
-        print(f"Hash vs expected:\n{sha256(out_bytes).hexdigest()[:32]}\n{sha256(source_bytes).hexdigest()[:32]}")
-        time.sleep(9999999)
-        sys.exit(1)
-    print("Hash is OK!")
 
     time.sleep(9999999)
