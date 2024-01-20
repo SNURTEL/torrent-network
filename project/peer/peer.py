@@ -1,3 +1,4 @@
+import random
 import socket
 import asyncio
 import math
@@ -36,28 +37,13 @@ async def download_chunk(
     return unpacked.content
 
 
-async def download_chunks(
-        reader: asyncio.StreamReader,
-        writer: asyncio.StreamWriter,
-        file_hash: str, chunk_nums:
-        list[int]
-) -> list[bytes]:
-    chunks = []
-    for chunk_num in chunk_nums:
-        try:
-            chunks.append(await download_chunk(reader=reader, writer=writer, file_hash=file_hash, chunk_num=chunk_num))
-        except ValueError as e:
-            print(f"Failed to download chunk {chunk_num}:\n{repr(e)}")
-            chunks.append(None)
-
-    return chunks
-
-
 async def download_file(hash: str, size: int, out_name: str):
     partial_file = f"{out_name}.partial"
 
     with open(partial_file, "wb") as fp:
         fp.truncate(size)
+
+    retry_queue = asyncio.Queue()
 
     async def download_and_save_chunk(
             chunk_num: int,
@@ -65,41 +51,52 @@ async def download_file(hash: str, size: int, out_name: str):
             reader: asyncio.StreamReader,
             writer: asyncio.StreamWriter
     ):
-        print(f"Send GCHNK, chunk_num={chunk_num}")
-        res = await download_chunk(reader, writer, chunk_hash, chunk_num)
-        with open(partial_file, mode='r+b') as fp:
-            fp.seek(chunk_num * CHUNK_SIZE)
-            fp.write(res)
+        try:
+            res = await download_chunk(reader, writer, chunk_hash, chunk_num)
+            if random.random() < 0.1:
+                raise Exception("Random error")
+            with open(partial_file, mode='r+b') as fp:
+                fp.seek(chunk_num * CHUNK_SIZE)
+                fp.write(res)
+        except Exception as e:
+            print(f"{e} on chunk {chunk_num}")
+            await retry_queue.put((chunk_num, chunk_hash))
 
     async def connect_and_save_chunks(
             host: str,
             port: int,
             chunk_nums: list[int],
             chunk_hashes: list[str]):
+        print(f"Connect to {host}:{port} and download {chunk_nums}")
         reader, writer = await asyncio.open_connection(host, port)
         for coro in [download_and_save_chunk(chunk_num, "A" * 32, reader, writer) for chunk_num, chunk_hash in
                      zip(chunk_nums, chunk_hashes)]:
             await coro
 
-    n_chunks = math.ceil(size / CHUNK_SIZE)
-    chunk_num_mapping = [
-        list(range(0, n_chunks // 3)),
-        list(range(n_chunks // 3, 2 * n_chunks // 3)),
-        list(range(2 * n_chunks // 3, n_chunks)),
-    ]
+    try:
+        n_chunks = math.ceil(size / CHUNK_SIZE)
+        chunk_num_mapping = [
+            list(range(0, n_chunks // 3)),
+            list(range(n_chunks // 3, 2 * n_chunks // 3)),
+            list(range(2 * n_chunks // 3, n_chunks)),
+        ]
 
-    await asyncio.gather(
-        *[connect_and_save_chunks('localhost', port, chunk_nums, ['B' * 32 for _ in range(n_chunks)]) for
-          port, chunk_nums in zip(range(8001, 8004), chunk_num_mapping)])
+        await asyncio.gather(
+            *[connect_and_save_chunks('localhost', port, chunk_nums, ['B' * 32 for _ in range(n_chunks)]) for
+              port, chunk_nums in zip(range(8001, 8004), chunk_num_mapping)])
 
-    with open(partial_file, mode='rb') as fsource:
-        with open(out_name, mode='wb') as fdest:
-            shutil.copyfileobj(fsource, fdest)
-            fdest.seek(-(size % CHUNK_SIZE), os.SEEK_END)
-            fdest.truncate()
-    print(f"Wrote to {out_name}")
+        while not retry_queue.empty():
+            chunk_num, chunk_hash = await retry_queue.get()
+            await asyncio.create_task(connect_and_save_chunks('localhost', random.choice([8001, 8002, 8003]), [chunk_num], [chunk_hash]))
 
-    os.remove(partial_file)
+        with open(partial_file, mode='rb') as fsource:
+            with open(out_name, mode='wb') as fdest:
+                shutil.copyfileobj(fsource, fdest)
+                fdest.seek(-(size % CHUNK_SIZE), os.SEEK_END)
+                fdest.truncate()
+        print(f"Wrote to {out_name}")
+    finally:
+        os.remove(partial_file)
 
 
 if __name__ == '__main__':
