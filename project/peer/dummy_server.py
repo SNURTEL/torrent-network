@@ -1,3 +1,4 @@
+import random
 import sys
 import asyncio, socket
 from hashlib import sha256
@@ -33,6 +34,15 @@ async def _handle_client(client):
                     content=response_content
                 ))
                 await loop.sock_sendall(client, response)
+
+            # case MsgType.ACHNK:
+            #     with open('source.jpg', mode='rb') as fp:
+            #         file_bytes = fp.read()
+            #     padded = (file_bytes + b'\0' * (CHUNK_SIZE - (len(file_bytes) % CHUNK_SIZE)))
+            #     file_chunks = [padded[i:i + CHUNK_SIZE] for i in range(0, len(padded), CHUNK_SIZE)]
+            #     chunk_dict = {
+            #         sha256(chunk).hexdigest()[:32]: random.choice([8001, 8002, 8003]) for chunk in file_chunks
+            #     }
 
             case _:
                 raise ValueError("Unknown message type")

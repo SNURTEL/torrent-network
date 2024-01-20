@@ -1,6 +1,8 @@
+import random
 import socket
 import sys
 import asyncio
+from hashlib import sha256
 
 from project.messages.pack import unpack, pack
 from project.messages.body import MsgType, ErrorCode, PEERS_body, ERROR_body, REPRT_body
@@ -112,7 +114,8 @@ def create_availability_report(file: File) -> bytes:
         msg_type=MsgType.PEERS.value,
         file_hash=str.encode(file.file_hash),
         file_size=file.size,
-        peers=str.encode(encode_peers(file.peers))
+        num_peers=len(file.peers),
+        peers=encode_peers(file.peers)
     )
 
     return pack(body)
@@ -150,4 +153,10 @@ async def process_REPRT(data, client_socket):
 
 
 if __name__ == "__main__":
+    files.append(
+        File(size=736052, file_hash="c54dedc175d993f3b632a5b5bdfc9a920d2139ee8df50e8f3219ec7a462de823"[:32], timeout=300, peers=[
+            Peer(f"127.0.0.1", availability=2)
+        ])
+    )
+
     asyncio.run(main())

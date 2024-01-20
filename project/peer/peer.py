@@ -6,15 +6,29 @@ import shutil
 import os
 from hashlib import sha256
 
-from project.messages.body import MsgType, GCHNK_body
+from project.coordinator.data_classes import Peer, decode_peers
+from project.messages.body import MsgType, GCHNK_body, APEER_body
 from project.messages.pack import pack, unpack
 
 socket.socketpair()
 
 CHUNK_SIZE = 1024
 
+async def _query_coordinator_for_file_peers(
+        file_hash: str
+) -> list[Peer]:
+    reader, writer = await asyncio.open_connection('localhost', 8000)
+    apeer_msg = pack(APEER_body(msg_type=MsgType.APEER.value, file_hash=str.encode(file_hash)))
+    writer.write(apeer_msg)
+    await writer.drain()
+    prefix = await reader.readexactly(n=44)
+    num_peers = int.from_bytes(prefix[-4:], byteorder='little', signed=False)
+    peers_bytes = await reader.readexactly(n=num_peers*8)
+    peers_response = unpack(prefix + peers_bytes, MsgType.PEERS)
+    return decode_peers(peers_response.peers)
 
-async def download_chunk(
+
+async def _download_chunk(
         reader: asyncio.StreamReader,
         writer: asyncio.StreamWriter,
         file_hash: str,
@@ -45,14 +59,25 @@ async def download_file(hash: str, size: int, out_name: str):
 
     retry_queue = asyncio.Queue()
 
-    async def download_and_save_chunk(
+    peers = await _query_coordinator_for_file_peers(hash)
+    peers = [  # override for testing purposes
+        Peer(f"127.0.0.1:{port}", availability=2) for port in [8001, 8002, 8003]
+    ]
+    num_peers = len(peers)
+
+    # for now assume all peers have the entire file
+    num_chunks = math.ceil(size / CHUNK_SIZE)
+    chunks_per_peer = math.ceil(num_chunks / num_peers)
+    chunk_num_mapping = [list(range(num_chunks))[i:i + chunks_per_peer] for i in range(0, num_chunks, chunks_per_peer)]
+
+    async def _download_and_save_chunk(
             chunk_num: int,
             chunk_hash: str,
             reader: asyncio.StreamReader,
             writer: asyncio.StreamWriter
     ):
         try:
-            res = await download_chunk(reader, writer, chunk_hash, chunk_num)
+            res = await _download_chunk(reader, writer, chunk_hash, chunk_num)
             if random.random() < 0.1:
                 raise Exception("Random error")
             with open(partial_file, mode='r+b') as fp:
@@ -69,17 +94,12 @@ async def download_file(hash: str, size: int, out_name: str):
             chunk_hashes: list[str]):
         print(f"Connect to {host}:{port} and download {chunk_nums}")
         reader, writer = await asyncio.open_connection(host, port)
-        for coro in [download_and_save_chunk(chunk_num, "A" * 32, reader, writer) for chunk_num, chunk_hash in
+        for coro in [_download_and_save_chunk(chunk_num, "A" * 32, reader, writer) for chunk_num, chunk_hash in
                      zip(chunk_nums, chunk_hashes)]:
             await coro
 
     try:
         n_chunks = math.ceil(size / CHUNK_SIZE)
-        chunk_num_mapping = [
-            list(range(0, n_chunks // 3)),
-            list(range(n_chunks // 3, 2 * n_chunks // 3)),
-            list(range(2 * n_chunks // 3, n_chunks)),
-        ]
 
         await asyncio.gather(
             *[connect_and_save_chunks('localhost', port, chunk_nums, ['B' * 32 for _ in range(n_chunks)]) for

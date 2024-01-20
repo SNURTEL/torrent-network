@@ -21,7 +21,7 @@ class ErrorCode(Enum):
 GCHNK_body = namedtuple("GCHNK_body", ("msg_type", "file_hash", "chunk_num"))
 SCHNK_body = namedtuple("SCHNK_body", ("msg_type", "file_hash", "chunk_num", "chunk_hash", "content"))
 APEER_body = namedtuple("APEER_body", ("msg_type", "file_hash",))
-PEERS_body = namedtuple("PEERS_body", ("msg_type", "file_hash", "file_size", "peers"))
+PEERS_body = namedtuple("PEERS_body", ("msg_type", "file_hash", "file_size", "num_peers", "peers"))
 REPRT_body = namedtuple("REPRT_body", ("msg_type", "file_hash", "availability", "file_size"))
 ERROR_body = namedtuple("ERROR_BODY", ("msg_type", "error_code"))
 

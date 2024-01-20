@@ -26,11 +26,11 @@ def _pack_string(body_or_data: Union[message_body_t, bytes],
     }
     _variable_size_pack_string_prefix = {
         MsgType.SCHNK: "<Bxxx32sHxx32s",
-        MsgType.PEERS: "<Bxxx32sI"
+        MsgType.PEERS: "<Bxxx32sII"
     }
     _variable_size_pack_size_without_suffix = {
         MsgType.SCHNK: 72,
-        MsgType.PEERS: 40,
+        MsgType.PEERS: 44,
     }
 
     if isinstance(body_or_data, message_body_t):
@@ -67,6 +67,7 @@ def pack(body: message_body_t) -> bytes:
 
 
 def unpack(data: bytes, msg_type: MsgType) -> message_body_t:
+    print(_pack_string(data, msg_type=msg_type))
     unpacked = struct.unpack(_pack_string(data, msg_type=msg_type), data)
 
     # assume first field is always message type
@@ -87,6 +88,9 @@ def unpack(data: bytes, msg_type: MsgType) -> message_body_t:
 
         case MsgType.ERROR:
             return ERROR_body._make(unpacked)
+
+        case MsgType.PEERS:
+            return PEERS_body._make(unpacked)
 
         case _:
             raise NotImplementedError("Invalid message type or not implemented")
