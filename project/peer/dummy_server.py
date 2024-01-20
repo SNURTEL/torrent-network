@@ -1,3 +1,4 @@
+import sys
 import asyncio, socket
 from hashlib import sha256
 
@@ -45,11 +46,11 @@ async def handle_client(client):
         print("Close socket")
 
 
-async def run_server():
+async def run_server(port_num: int):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server.bind(('localhost', 8888))
+        server.bind(('localhost', port_num))
         server.listen(8)
         server.setblocking(False)
 
@@ -62,5 +63,6 @@ async def run_server():
         server.shutdown(0)
         server.close()
 
-
-asyncio.run(run_server())
+if __name__ == '__main__':
+    port_num = int(sys.argv[1]) if len(sys.argv) > 1 else 8000
+    asyncio.run(run_server(port_num))
