@@ -5,56 +5,99 @@ import asyncio, socket
 from hashlib import sha256
 
 from project.messages.pack import pack, unpack
-from project.messages.body import SCHNK_body, MsgType, CHNKS_body
-from project.peer.reporting import report_availability_periodically
+from project.messages.body import SCHNK_body, MsgType, CHNKS_body, ERROR_body, ErrorCode
+from project.peer.reporting import report_availability_periodically,get_resource_dir_hashes
 
 CHUNK_SIZE = 1024
+
+RESOURCE_DIR = "resources"
+
 
 
 
 async def _handle_client(client, client_addr):
+    hash_file_mapping = {}
+
+    def refresh_hash_file_mapping():
+        nonlocal hash_file_mapping
+        hash_file_mapping = {v: k for k, v in get_resource_dir_hashes().items()}
+        print(hash_file_mapping)
+
+    def get_file_from_hash(file_hash: str) -> str:
+        file = hash_file_mapping.get(file_hash)
+        if not file:
+            refresh_hash_file_mapping()
+            file = hash_file_mapping.get(file_hash)
+        return file
+
+
+
+    refresh_hash_file_mapping()
+
     loop = asyncio.get_event_loop()
 
     while msg_type_byte := await loop.sock_recv(client, 1):
         msg_type = MsgType(int.from_bytes(msg_type_byte, signed=False, byteorder='little'))
         match msg_type:
             case MsgType.GCHNK:
-                rest = await loop.sock_recv(client, 72 + CHUNK_SIZE - 1)
+                rest = await loop.sock_recv(client, 39)
                 msg = unpack(msg_type_byte + rest, MsgType.GCHNK)
-                print(f"Got GCHNK from {client_addr} chunk_num={msg.chunk_num}")
+                file_hash = msg.file_hash.decode()
+                file = get_file_from_hash(file_hash)
 
-                with open("resources/source.jpg", mode='rb') as fp:
-                    fp.seek(msg.chunk_num * CHUNK_SIZE)
-                    response_content = fp.read(CHUNK_SIZE)
-                    if len(response_content) < CHUNK_SIZE:
-                        response_content += b'\0' * (CHUNK_SIZE - len(response_content))
+                if not file:
+                    print(f"Got GCHNK from {client_addr} chunk {msg.chunk_num} of unknown file ({msg.file_hash})")
+                    response = pack(ERROR_body(
+                        msg_type=MsgType.ERROR.value,
+                        error_code=ErrorCode.NO_FILE_FOUND.value
+                    ))
+                else:
+                    print(f"Got GCHNK from {client_addr} chunk {msg.chunk_num} of {file}")
+                    with open(RESOURCE_DIR + '/' + file, mode='rb') as fp:
+                        fp.seek(msg.chunk_num * CHUNK_SIZE)
+                        response_content = fp.read(CHUNK_SIZE)
+                        if len(response_content) < CHUNK_SIZE:
+                            response_content += b'\0' * (CHUNK_SIZE - len(response_content))
 
-                response = pack(SCHNK_body(
-                    msg_type=MsgType.SCHNK.value,
-                    file_hash=msg.file_hash,
-                    chunk_num=msg.chunk_num,
-                    chunk_hash=str.encode(sha256(response_content).hexdigest()[:32]),
-                    content=response_content
-                ))
+                    response = pack(SCHNK_body(
+                        msg_type=MsgType.SCHNK.value,
+                        file_hash=msg.file_hash,
+                        chunk_num=msg.chunk_num,
+                        chunk_hash=str.encode(sha256(response_content).hexdigest()[:32]),
+                        content=response_content
+                    ))
+
+
                 await loop.sock_sendall(client, response)
 
             case MsgType.ACHNK:
                 rest = await loop.sock_recv(client, 36 - 1)
                 msg = unpack(msg_type_byte + rest, MsgType.ACHNK)
-                print(f"Got ACHNK from {client_addr}")
 
-                with open('resources/source.jpg.fileinfo', mode='rb') as fp:
-                    fileinfo = json.load(fp)
-                num_chunks = fileinfo['num_chunks']
-                avail = random.sample(list(range(num_chunks)), k=num_chunks // 2)
 
-                response = pack(CHNKS_body(
-                    msg_type=MsgType.CHNKS.value,
-                    file_hash=msg.file_hash,
-                    num_chunks=num_chunks // 2,
-                    availability=b''.join(
-                        [int.to_bytes(num, length=4, byteorder='little', signed=False) for num in avail])
-                ))
+                file_hash = msg.file_hash.decode()
+                file = get_file_from_hash(file_hash)
+
+                if not file:
+                    print(f"Got ACHNK from {client_addr} for unknown file ({file_hash})")
+                    response = pack(ERROR_body(
+                        msg_type=MsgType.ERROR.value,
+                        error_code=ErrorCode.NO_FILE_FOUND.value
+                    ))
+                else:
+                    print(f"Got ACHNK from {client_addr} for {file}")
+                    with open(f'{RESOURCE_DIR}/{file}.fileinfo', mode='rb') as fp:
+                        fileinfo = json.load(fp)
+                    num_chunks = fileinfo['num_chunks']
+                    avail = random.sample(list(range(num_chunks)), k=num_chunks // 2)
+
+                    response = pack(CHNKS_body(
+                        msg_type=MsgType.CHNKS.value,
+                        file_hash=msg.file_hash,
+                        num_chunks=num_chunks // 2,
+                        availability=b''.join(
+                            [int.to_bytes(num, length=4, byteorder='little', signed=False) for num in avail])
+                    ))
                 await loop.sock_sendall(client, response)
 
             case _:

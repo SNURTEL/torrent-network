@@ -73,6 +73,7 @@ async def _download_chunk(
     file_hash_bytes = str.encode(file_hash)
     gchnk_bytes = pack(GCHNK_body(msg_type=MsgType.GCHNK.value, file_hash=file_hash_bytes,
                                   chunk_num=chunk_num))
+
     writer.write(gchnk_bytes)
     await writer.drain()
     prefix = await reader.readexactly(n=72 + CHUNK_SIZE)
@@ -239,7 +240,7 @@ async def download_file(fileinfo: dict, out_name: str):
         Download the given chunk and save it to `.partial` file
         """
         try:
-            res = await _download_chunk(reader, writer, chunk_hash, chunk_num)
+            res = await _download_chunk(reader, writer, file_hash, chunk_num)
             if sha256(res).hexdigest()[:32] != chunk_hash:
                 raise ValueError(f"Chunk {chunk_num} hash not matching")
             with open(partial_file, mode='r+b') as fp:
