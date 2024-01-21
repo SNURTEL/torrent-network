@@ -15,7 +15,7 @@ COORDINATOR_CONN_RETRY_SECONDS = 10
 file_hashes_t = dict[str, str]
 
 
-async def send_file_report(previous_file_hashes: file_hashes_t):
+async def send_file_report(previous_file_hashes: file_hashes_t) -> file_hashes_t:
     """
     Check file availability in resource dir and report all to coordinator (including deleted ones).
     Return current file -> hash mapping
@@ -31,18 +31,17 @@ async def send_file_report(previous_file_hashes: file_hashes_t):
         to_send.append(reprt_msg)
 
     for filename in filenames:
-        # FIXME duplicated code
         file_path = os.path.join(RESOURCE_DIR, filename)
         with open(file_path, mode='rb') as fp:
             content = fp.read()
-            file_hash = str.encode(sha256(content).hexdigest())[:32]
+            file_hash = sha256(content).hexdigest()[:32]
         current_file_hashes[filename] = file_hash
         if filename.endswith(".partial"):
             av = 1
         else:
             av = 2
         reprt_msg = pack(
-            REPRT_body(msg_type=MsgType.REPRT.value, file_hash=file_hash, availability=av, file_size=len(content))
+            REPRT_body(msg_type=MsgType.REPRT.value, file_hash=str.encode(file_hash), availability=av, file_size=len(content))
         )
         to_send.append(reprt_msg)
 
@@ -105,6 +104,7 @@ async def report_availability_periodically(reporting_interval: int):
     file_state = get_resource_dir_hashes()
     while True:
         try:
+            print(file_state)
             file_state = await send_file_report(file_state)
             await asyncio.sleep(reporting_interval)
         except KeyboardInterrupt:

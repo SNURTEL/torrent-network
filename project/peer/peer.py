@@ -25,6 +25,7 @@ CLIENT_COMM_SOCKET_PATH = '/tmp/peer_server.sock'
 COORDINATOR_CONN_RETRY_SECONDS = 10
 COORDINATOR_ADDR = '10.5.0.10'
 COORDINATOR_PORT = 8000
+RESOURCE_DIR = 'resources'
 
 
 async def _query_coordinator_for_file_peers(
@@ -331,7 +332,7 @@ async def download_file(fileinfo: dict, out_name: str):
                 fdest.truncate()
 
         # check file hash
-        with open('out.jpg', mode='rb') as fp:
+        with open(out_name, mode='rb') as fp:
             out_bytes = fp.read()
 
         if not sha256(out_bytes).hexdigest()[:32] == file_hash:
@@ -385,27 +386,28 @@ def start_server():
 
         with open("server.log", mode='a') as fp:
             fp.write(traceback.format_exc())
+    sys.exit(0)
 
-async def main():
-    FILE = 'resources/source.jpg'
+async def main(fileinfo_file):
 
-    with open(f"{FILE}.fileinfo", mode='r') as fp:
+    with open(fileinfo_file, mode='r') as fp:
         fileinfo = json.load(fp)
     await asyncio.gather(
-        download_file(fileinfo, 'out.jpg')
+        download_file(fileinfo, f'{RESOURCE_DIR}/out.jpg')
     )
 
 
 if __name__ == '__main__':
     global IP_ADDR
     IP_ADDR = sys.argv[1] if len(sys.argv) > 1 else '127.0.0.1'
+    fileinfo_file = sys.argv[2] if len(sys.argv) > 2 else None
 
     time.sleep(3)
 
     if not check_server_running():
         start_server()
 
-    asyncio.run(main())
+    asyncio.run(main(fileinfo_file))
 
     # halt execution to allow for inspecting the container
     time.sleep(9999999)
