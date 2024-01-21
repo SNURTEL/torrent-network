@@ -6,15 +6,20 @@ import os
 import sys
 import time
 import itertools
+import threading
+import time
 from hashlib import sha256
+from peer_server import run_server
 
 from project.coordinator.data_classes import Peer, decode_peers
 from project.messages.body import MsgType, GCHNK_body, APEER_body, ErrorCode, ACHNK_body, REPRT_body
+from project.messages.body import MsgType, GCHNK_body, REPRT_body, APEER_body
 from project.messages.pack import pack, unpack
 
 global IP_ADDR
 
 CHUNK_SIZE = 1024
+RESCOURSE_FOLDER = "rescources"
 
 MAX_CONNECTIONS = 2
 
@@ -326,6 +331,100 @@ async def download_file(fileinfo: dict, out_name: str):
         if not partial_availability_reporting_task.cancelled():
             partial_availability_reporting_task.cancel()
         os.remove(partial_file)
+
+
+async def send_file_report(file_state):
+    files = get_files()
+    new_file_state = {}
+    to_send = []
+
+    for removed in filter(lambda i: i not in files, file_state.keys()):
+        raport_msg = pack(
+            REPRT_body(msg_type=MsgType.REPRT.value, file_hash=file_state[removed], availability=0, file_size=0)
+        )
+        to_send.append(raport_msg)
+
+    for file in files:
+        file_path = os.path.join(RESCOURSE_FOLDER, file)
+        with open(file_path, mode='rb') as f:
+            content = f.read()
+            hash = str.encode(sha256(content).hexdigest())[:32]
+        new_file_state[file] = hash
+        if file.endswith(".partial"):
+            av = 1
+        else:
+            av = 2
+        raport_msg = pack(
+            REPRT_body(msg_type=MsgType.REPRT.value, file_hash=hash, availability=av, file_size=len(content))
+        )
+        to_send.append(raport_msg)
+
+    writer = None
+    try:
+        writer = None
+        reader, writer = await asyncio.open_connection("localhost", 8000)
+        for raport in to_send:
+            writer.write(raport)
+        await writer.drain()
+    finally:
+        if writer is not None:
+            writer.close()
+            await writer.wait_closed()
+
+    return new_file_state
+
+
+async def ask_for_peers(hash):
+    writer = None
+    data = None
+    try:
+        reader, writer = await asyncio.open_connection('localhost', 8000)
+        ask_for_peers_msg = pack(APEER_body(
+            msg_type=MsgType.APEER.value,
+            file_hash=str.encode(hash),
+        )
+        )
+        writer.write(ask_for_peers_msg)
+        await writer.drain()
+        data = await reader.read()
+        data = unpack(data, MsgType.PEERS)
+    finally:
+        if writer:
+            writer.close()
+            await writer.wait_closed()
+
+    return data
+
+
+def get_init_file_state():
+    files = get_files()
+    file_state = {}
+    for file in files:
+        file_path = os.path.join(RESCOURSE_FOLDER, file)
+        with open(file_path, mode='rb') as f:
+            content = f.read()
+            hash = str.encode(sha256(content).hexdigest())[:32]
+        file_state[file] = hash
+    return file_state
+
+
+def get_files():
+    try:
+        files = [f for f in os.listdir(RESCOURSE_FOLDER) if os.path.isfile(os.path.join(RESCOURSE_FOLDER, f))]
+    except FileNotFoundError:
+        files = []
+        os.mkdir(RESCOURSE_FOLDER)
+    return files
+
+
+async def automatic_reporting():
+    file_state = get_init_file_state()
+    while True:
+        try:
+            file_state = await send_file_report(file_state)
+            await asyncio.sleep(15)
+        except KeyboardInterrupt:
+            break
 
 
 if __name__ == '__main__':
