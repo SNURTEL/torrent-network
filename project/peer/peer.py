@@ -23,13 +23,11 @@ RETRY_SECONDS = 5
 REPORTING_INTERVAL_SECONDS = 3
 
 
-async def _query_coordinator_for_file_peers(
-        file_hash: str
-) -> list[Peer]:
+async def _query_coordinator_for_file_peers(file_hash: str) -> list[Peer]:
     """
     Query coordinator for list of peers which have the given file
     """
-    reader, writer = await asyncio.open_connection('10.5.0.10', 8000)
+    reader, writer = await asyncio.open_connection("10.5.0.10", 8000)
     try:
         apeer_msg = pack(APEER_body(msg_type=MsgType.APEER.value, file_hash=str.encode(file_hash)))
         writer.write(apeer_msg)
@@ -39,7 +37,7 @@ async def _query_coordinator_for_file_peers(
         writer.close()
 
     # check mgs type
-    if int.from_bytes(msg_type, byteorder='little', signed=False) == MsgType.ERROR.value:
+    if int.from_bytes(msg_type, byteorder="little", signed=False) == MsgType.ERROR.value:
         body = await reader.readexactly(n=3)
         error_msg = unpack(msg_type + body, msg_type=MsgType.ERROR)
         if error_msg.error_code == ErrorCode.NO_FILE_FOUND.value:
@@ -48,28 +46,24 @@ async def _query_coordinator_for_file_peers(
             raise ValueError("Error downloading file")
     # unpack the message
     prefix = msg_type + await reader.readexactly(n=43)
-    num_peers = int.from_bytes(prefix[-4:], byteorder='little', signed=False)
+    num_peers = int.from_bytes(prefix[-4:], byteorder="little", signed=False)
     peers_bytes = await reader.readexactly(n=num_peers * 8)
     peers_response = unpack(prefix + peers_bytes, MsgType.PEERS)
     return [
-        peer for peer in decode_peers(peers_response.peers)
-        if peer.address != IP_ADDR
-           and not peer.address.startswith(
-            '10.5.0.2')]  # FIXME workaround to disable connecting to other peers until we have proper seeding
+        peer
+        for peer in decode_peers(peers_response.peers)
+        if peer.address != IP_ADDR and not peer.address.startswith("10.5.0.2")
+    ]  # FIXME workaround to disable connecting to other peers until we have proper seeding
 
 
 async def _download_chunk(
-        reader: asyncio.StreamReader,
-        writer: asyncio.StreamWriter,
-        file_hash: str,
-        chunk_num: int
+    reader: asyncio.StreamReader, writer: asyncio.StreamWriter, file_hash: str, chunk_num: int
 ) -> bytes:
     """
     Download a given chunk using provided reader and writer and return it
     """
     file_hash_bytes = str.encode(file_hash)
-    gchnk_bytes = pack(GCHNK_body(msg_type=MsgType.GCHNK.value, file_hash=file_hash_bytes,
-                                  chunk_num=chunk_num))
+    gchnk_bytes = pack(GCHNK_body(msg_type=MsgType.GCHNK.value, file_hash=file_hash_bytes, chunk_num=chunk_num))
     writer.write(gchnk_bytes)
     await writer.drain()
     prefix = await reader.readexactly(n=72 + CHUNK_SIZE)
@@ -88,10 +82,10 @@ async def download_file(fileinfo: dict, out_name: str):
 
     partial_file = f"{out_name}.partial"
 
-    size = fileinfo['file_size']
-    file_hash = fileinfo['file_hash']
-    chunk_hashes = fileinfo['chunk_hashes']
-    num_chunks = fileinfo['num_chunks']
+    size = fileinfo["file_size"]
+    file_hash = fileinfo["file_hash"]
+    chunk_hashes = fileinfo["chunk_hashes"]
+    num_chunks = fileinfo["num_chunks"]
 
     with open(partial_file, "wb") as fp:
         fp.truncate(size)
@@ -110,13 +104,16 @@ async def download_file(fileinfo: dict, out_name: str):
         """
         assert avail_type in (0, 1, 2)
 
-        reader, writer = await asyncio.open_connection('10.5.0.10', 8000)
+        reader, writer = await asyncio.open_connection("10.5.0.10", 8000)
         try:
-            reprt_msg = pack(REPRT_body(
-                msg_type=MsgType.REPRT.value,
-                file_hash=str.encode(file_hash),
-                availability=avail_type,
-                file_size=size))
+            reprt_msg = pack(
+                REPRT_body(
+                    msg_type=MsgType.REPRT.value,
+                    file_hash=str.encode(file_hash),
+                    availability=avail_type,
+                    file_size=size,
+                )
+            )
             writer.write(reprt_msg)
             await writer.drain()
         finally:
@@ -148,9 +145,7 @@ async def download_file(fileinfo: dict, out_name: str):
             partial_addrs = [peer.address for peer in peers if peer.availability == 1]
 
             # put all peers with full availability in mapping
-            mapping = {
-                i: all_chunks_addrs.copy() for i in range(num_chunks)
-            }
+            mapping = {i: all_chunks_addrs.copy() for i in range(num_chunks)}
 
             async def query_peer_for_partial_availability(addr: str) -> list[int]:
                 """
@@ -162,25 +157,28 @@ async def download_file(fileinfo: dict, out_name: str):
                     writer.write(achnk_msg)
                     await writer.drain()
                     msg_type = await reader.readexactly(n=1)
-                    if int.from_bytes(msg_type, byteorder='little', signed=False) == MsgType.ERROR.value:
+                    if int.from_bytes(msg_type, byteorder="little", signed=False) == MsgType.ERROR.value:
                         body = await reader.readexactly(n=3)
                         error_msg = unpack(msg_type + body, msg_type=MsgType.ERROR)
                         print(error_msg)
                         return list()
                     prefix = msg_type + await reader.readexactly(n=39)
-                    num_chunks = int.from_bytes(prefix[-4:-2], byteorder='little', signed=False)
+                    num_chunks = int.from_bytes(prefix[-4:-2], byteorder="little", signed=False)
                     chunks_bytes = await reader.readexactly(n=num_chunks * 4)
                     chunks_response = unpack(prefix + chunks_bytes, MsgType.CHNKS)
-                    avail_chunks = [int.from_bytes(chunks_response.availability[i:i + 4], byteorder='little', signed=False)
-                                    for i in range(0, num_chunks * 4, 4)]
+                    avail_chunks = [
+                        int.from_bytes(chunks_response.availability[i : i + 4], byteorder="little", signed=False)
+                        for i in range(0, num_chunks * 4, 4)
+                    ]
                     return avail_chunks
                 finally:
                     writer.close()
 
             # Map peers with partial availability to chunks they own
-            partial_avail_addr_to_num_mapping = zip(partial_addrs, await asyncio.gather(*[
-                query_peer_for_partial_availability(addr) for addr in partial_addrs
-            ]))
+            partial_avail_addr_to_num_mapping = zip(
+                partial_addrs,
+                await asyncio.gather(*[query_peer_for_partial_availability(addr) for addr in partial_addrs]),
+            )
 
             # add to mapping
             for addr, avail_chunks in partial_avail_addr_to_num_mapping:
@@ -212,24 +210,25 @@ async def download_file(fileinfo: dict, out_name: str):
         """
         Randomly assign lists of chunks to peers. Put the rarest chunks at the start.
         """
-        _chunk_addr_picks = [(num, random.choice(addrs)) for num, addrs in
-                             sorted(chunk_peers_mapping.items(), key=lambda x: x[1]) if
-                             len(addrs) > 0 and ((num in chunk_nums) if chunk_nums else True)]
-        _num_peers_per_chunk = {num: len(addrs) for num, addrs in
-                                sorted(chunk_peers_mapping.items(), key=lambda x: x[1]) if len(addrs) > 0}
+        _chunk_addr_picks = [
+            (num, random.choice(addrs))
+            for num, addrs in sorted(chunk_peers_mapping.items(), key=lambda x: x[1])
+            if len(addrs) > 0 and ((num in chunk_nums) if chunk_nums else True)
+        ]
+        _num_peers_per_chunk = {
+            num: len(addrs) for num, addrs in sorted(chunk_peers_mapping.items(), key=lambda x: x[1]) if len(addrs) > 0
+        }
 
         _addr_to_chunks_mapping = itertools.groupby(sorted(_chunk_addr_picks, key=lambda x: x[1]), key=lambda x: x[1])
         return [
-            (addr, [_num for _num, _addr in list(sorted(grouped_list, key=lambda x: _num_peers_per_chunk[x[0]]))]) for
-            addr, grouped_list in _addr_to_chunks_mapping]
+            (addr, [_num for _num, _addr in list(sorted(grouped_list, key=lambda x: _num_peers_per_chunk[x[0]]))])
+            for addr, grouped_list in _addr_to_chunks_mapping
+        ]
 
     addr_chunks_pairs = assign_chunks_to_peers()
 
     async def _download_and_save_chunk(
-            chunk_num: int,
-            chunk_hash: str,
-            reader: asyncio.StreamReader,
-            writer: asyncio.StreamWriter
+        chunk_num: int, chunk_hash: str, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ):
         """
         Download the given chunk and save it to `.partial` file
@@ -238,7 +237,7 @@ async def download_file(fileinfo: dict, out_name: str):
             res = await _download_chunk(reader, writer, chunk_hash, chunk_num)
             if sha256(res).hexdigest()[:32] != chunk_hash:
                 raise ValueError(f"Chunk {chunk_num} hash not matching")
-            with open(partial_file, mode='r+b') as fp:
+            with open(partial_file, mode="r+b") as fp:
                 fp.seek(chunk_num * CHUNK_SIZE)
                 fp.write(res)
             nonlocal got_chunks
@@ -247,11 +246,7 @@ async def download_file(fileinfo: dict, out_name: str):
             print(f"{e} on chunk {chunk_num}")
             await retry_queue.put((chunk_num, chunk_hash))
 
-    async def connect_and_save_chunks(
-            host: str,
-            port: int,
-            chunk_nums: list[int],
-            chunk_hashes: list[str]):
+    async def connect_and_save_chunks(host: str, port: int, chunk_nums: list[int], chunk_hashes: list[str]):
         """
         Connect to peer and download & save chunks sequentially
         """
@@ -259,8 +254,10 @@ async def download_file(fileinfo: dict, out_name: str):
         async with sem:
             reader, writer = await asyncio.open_connection(host, port)
             try:
-                for coro in [_download_and_save_chunk(chunk_num, chunk_hash, reader, writer) for chunk_num, chunk_hash in
-                             zip(chunk_nums, chunk_hashes)]:
+                for coro in [
+                    _download_and_save_chunk(chunk_num, chunk_hash, reader, writer)
+                    for chunk_num, chunk_hash in zip(chunk_nums, chunk_hashes)
+                ]:
                     await coro
             finally:
                 writer.close()
@@ -270,8 +267,11 @@ async def download_file(fileinfo: dict, out_name: str):
     try:
         # Download and save all instantly available chunks
         await asyncio.gather(
-            *[connect_and_save_chunks(addr, 8000, chunk_num_list, [chunk_hashes[n] for n in chunk_num_list]) for
-              addr, chunk_num_list, in addr_chunks_pairs])
+            *[
+                connect_and_save_chunks(addr, 8000, chunk_num_list, [chunk_hashes[n] for n in chunk_num_list])
+                for addr, chunk_num_list, in addr_chunks_pairs
+            ]
+        )
 
         while not retry_queue.empty():
             # refresh availability
@@ -282,17 +282,22 @@ async def download_file(fileinfo: dict, out_name: str):
                 items.append(await retry_queue.get())
 
             # find available and unavailable chunks
-            available_items = [(chunk_num, chunk_hash) for chunk_num, chunk_hash in items if
-                               chunk_peers_mapping.get(chunk_num)]
-            unavailable_items = [(chunk_num, chunk_hash) for chunk_num, chunk_hash in items if not
-            chunk_peers_mapping.get(chunk_num)]
+            available_items = [
+                (chunk_num, chunk_hash) for chunk_num, chunk_hash in items if chunk_peers_mapping.get(chunk_num)
+            ]
+            unavailable_items = [
+                (chunk_num, chunk_hash) for chunk_num, chunk_hash in items if not chunk_peers_mapping.get(chunk_num)
+            ]
 
             addr_chunks_pairs = assign_chunks_to_peers([num for num, _ in available_items])
 
             # download previously unavailable chunks
             await asyncio.gather(
-                *[connect_and_save_chunks(addr, 8000, chunk_num_list, [chunk_hashes[n] for n in chunk_num_list]) for
-                  addr, chunk_num_list, in addr_chunks_pairs])
+                *[
+                    connect_and_save_chunks(addr, 8000, chunk_num_list, [chunk_hashes[n] for n in chunk_num_list])
+                    for addr, chunk_num_list, in addr_chunks_pairs
+                ]
+            )
 
             # put chunks which are still unavailable back in queue
             if unavailable_items:
@@ -303,14 +308,14 @@ async def download_file(fileinfo: dict, out_name: str):
                 await asyncio.sleep(RETRY_SECONDS)
 
         # remove null padding from file
-        with open(partial_file, mode='rb') as fsource:
-            with open(out_name, mode='wb') as fdest:
+        with open(partial_file, mode="rb") as fsource:
+            with open(out_name, mode="wb") as fdest:
                 shutil.copyfileobj(fsource, fdest)
                 fdest.seek(-(CHUNK_SIZE - (size % CHUNK_SIZE)), os.SEEK_END)
                 fdest.truncate()
 
         # check file hash
-        with open('out.jpg', mode='rb') as fp:
+        with open("out.jpg", mode="rb") as fp:
             out_bytes = fp.read()
 
         if not sha256(out_bytes).hexdigest()[:32] == file_hash:
@@ -374,20 +379,44 @@ def help(params=None):
         print("exit")
 
 
-if __name__ == '__main__':
+def main(port):
+    report_loop = asyncio.new_event_loop()
+    report_thread = threading.Thread(target=run_in_new_loop, args=(report_loop, automatic_reporting()))
+    report_thread.start()
+
+    server_loop = asyncio.new_event_loop()
+    server_thread = threading.Thread(target=run_in_new_loop, args=(server_loop, run_server(port=port)))
+    server_thread.start()
+
+    try:
+        while True:
+            user_input = input("?: ")
+            print(f">: {user_input}")
+            main_menu(user_input=user_input)
+
+    except KeyboardInterrupt:
+        pass
+
+    if report_thread.is_alive() and not downlading:
+        report_thread.join()
+
+    if server_thread.is_alive():
+        server_thread.join()
+
+
+if __name__ == "__main__":
     global IP_ADDR
-    IP_ADDR = sys.argv[1] if len(sys.argv) > 1 else '127.0.0.1'
+    IP_ADDR = sys.argv[1] if len(sys.argv) > 1 else "127.0.0.1"
 
     time.sleep(3)
     loop = asyncio.get_event_loop()
 
-    FILE = 'source.jpg'
+    FILE = "source.jpg"
 
-    with open(f"{FILE}.fileinfo", mode='r') as fp:
+    with open(f"{FILE}.fileinfo", mode="r") as fp:
         fileinfo = json.load(fp)
 
-    loop.run_until_complete(
-        download_file(fileinfo, 'out.jpg'))
+    loop.run_until_complete(download_file(fileinfo, "out.jpg"))
 
     # halt execution to allow for inspecting the container
     time.sleep(9999999)
