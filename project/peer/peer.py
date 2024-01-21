@@ -6,8 +6,6 @@ import os
 import sys
 import itertools
 import time
-import subprocess
-import pathlib
 from hashlib import sha256
 
 from project.coordinator.data_classes import Peer, decode_peers
@@ -24,6 +22,9 @@ MAX_DOWNLOAD_CONNECTIONS = 2
 CHUNK_UNAVAILABLE_RETRY_SECONDS = 5
 DOWNLOAD_REPORTING_INTERVAL_SECONDS = 3
 CLIENT_COMM_SOCKET_PATH = '/tmp/peer_server.sock'
+COORDINATOR_CONN_RETRY_SECONDS = 10
+COORDINATOR_ADDR = '10.5.0.10'
+COORDINATOR_PORT = 8000
 
 
 async def _query_coordinator_for_file_peers(
@@ -32,7 +33,12 @@ async def _query_coordinator_for_file_peers(
     """
     Query coordinator for list of peers which have the given file
     """
-    reader, writer = await asyncio.open_connection('10.5.0.10', 8000)
+    writer = None
+    while not writer:
+        try:
+            reader, writer = await asyncio.open_connection(COORDINATOR_ADDR, COORDINATOR_PORT)
+        except OSError as e:
+            print(f"Coordinator not available ({repr(e)}), retrying in {COORDINATOR_CONN_RETRY_SECONDS} seconds")
     try:
         apeer_msg = pack(APEER_body(msg_type=MsgType.APEER.value, file_hash=str.encode(file_hash)))
         writer.write(apeer_msg)
@@ -97,9 +103,6 @@ async def download_file(fileinfo: dict, out_name: str):
     chunk_hashes = fileinfo['chunk_hashes']
     num_chunks = fileinfo['num_chunks']
 
-    with open(partial_file, "wb") as fp:
-        fp.truncate(size)
-
     retry_queue = asyncio.Queue()
 
     sem = asyncio.Semaphore(MAX_DOWNLOAD_CONNECTIONS)
@@ -114,7 +117,12 @@ async def download_file(fileinfo: dict, out_name: str):
         """
         assert avail_type in (0, 1, 2)
 
-        reader, writer = await asyncio.open_connection('10.5.0.10', 8000)
+        writer = None
+        while not writer:
+            try:
+                reader, writer = await asyncio.open_connection(COORDINATOR_ADDR, COORDINATOR_PORT)
+            except OSError as e:
+                print(f"Coordinator not available ({repr(e)}), retrying in {COORDINATOR_CONN_RETRY_SECONDS} seconds")
         try:
             reprt_msg = pack(REPRT_body(
                 msg_type=MsgType.REPRT.value,
@@ -208,6 +216,12 @@ async def download_file(fileinfo: dict, out_name: str):
         chunk_peers_mapping = await build_chunk_peer_mapping()
 
     await refresh_chunk_availability()
+    if not chunk_peers_mapping:
+        print("File not available")
+        return
+
+    with open(partial_file, "wb") as fp:
+        fp.truncate(size)
 
     # Put all unavailable chunks in retry queue
     for num in (num for num, addrs in chunk_peers_mapping.items() if len(addrs) == 0):

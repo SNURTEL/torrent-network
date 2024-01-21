@@ -10,7 +10,7 @@ RESOURCE_DIR = "resources"
 
 COORDINATOR_ADDR = '10.5.0.10'
 COORDINATOR_PORT = 8000
-
+COORDINATOR_CONN_RETRY_SECONDS = 10
 
 file_hashes_t = dict[str, str]
 
@@ -52,7 +52,11 @@ async def send_file_report(previous_file_hashes: file_hashes_t):
     writer = None
     try:
         writer = None
-        reader, writer = await asyncio.open_connection(COORDINATOR_ADDR, COORDINATOR_PORT)
+        while not writer:
+            try:
+                reader, writer = await asyncio.open_connection(COORDINATOR_ADDR, COORDINATOR_PORT)
+            except OSError as e:
+                print(f"Coordinator not available ({repr(e)}), retrying in {COORDINATOR_CONN_RETRY_SECONDS} seconds")
         for raport in to_send:
             writer.write(raport)
             with open("server.log", mode='a') as fp:
