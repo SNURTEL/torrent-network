@@ -333,6 +333,13 @@ async def download_file(fileinfo: dict, out_name: str):
         os.remove(partial_file)
 
 
+def run_in_new_loop(loop, coro):
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(coro)
+    loop.close()
+
+
+
 def main_menu(user_input):
     try:
         command, params = user_input.split(" ", 1)
