@@ -9,3 +9,4 @@ client
 test
 .obsidian
 .vscode
+*.partial

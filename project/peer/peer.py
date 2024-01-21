@@ -11,6 +11,7 @@ from hashlib import sha256
 from project.coordinator.data_classes import Peer, decode_peers
 from project.messages.body import MsgType, GCHNK_body, APEER_body, ErrorCode, ACHNK_body, REPRT_body
 from project.messages.pack import pack, unpack
+import threading
 
 global IP_ADDR
 
@@ -339,7 +340,6 @@ def run_in_new_loop(loop, coro):
     loop.close()
 
 
-
 def main_menu(user_input):
     try:
         command, params = user_input.split(" ", 1)
@@ -353,8 +353,8 @@ def main_menu(user_input):
                 main_menu("help download")
             else:
                 print(f"Downloading file{params}")
-                # asyncio.run(download_file(params[0][:32], 736052, params[1] if params[1] else "out.jpeg"))
-                asyncio.run(download_file(params[0][:32], 736052, params[1], params[2]))
+                asyncio.run(download_file(f"{params[0]}.fileinfo", params[1]))
+                # loop.run_until_complete(download_file(f"{params[0]}.fileinfo", params[1]))
         case "help":
             help(params)
         case "exit":
@@ -387,13 +387,13 @@ def help(params=None):
 
 
 def main(port):
-    report_loop = asyncio.new_event_loop()
-    report_thread = threading.Thread(target=run_in_new_loop, args=(report_loop, automatic_reporting()))
-    report_thread.start()
+    # report_loop = asyncio.new_event_loop()
+    # report_thread = threading.Thread(target=run_in_new_loop, args=(report_loop, automatic_reporting()))
+    # report_thread.start()
 
-    server_loop = asyncio.new_event_loop()
-    server_thread = threading.Thread(target=run_in_new_loop, args=(server_loop, run_server(port=port)))
-    server_thread.start()
+    # server_loop = asyncio.new_event_loop()
+    # server_thread = threading.Thread(target=run_in_new_loop, args=(server_loop, run_server(port=port)))
+    # server_thread.start()
 
     try:
         while True:
@@ -404,11 +404,19 @@ def main(port):
     except KeyboardInterrupt:
         pass
 
-    if report_thread.is_alive() and not downlading:
-        report_thread.join()
+    # if report_thread.is_alive():
+    #     report_thread.join()
 
-    if server_thread.is_alive():
-        server_thread.join()
+    # if server_thread.is_alive():
+    #     server_thread.join()
+
+
+def get_file_info(file_name):
+    FILE = f"source.jpg"
+
+    with open(f"{FILE}.fileinfo", mode="r") as fp:
+        fileinfo = json.load(fp)
+        return fileinfo
 
 
 if __name__ == "__main__":
@@ -418,10 +426,7 @@ if __name__ == "__main__":
     time.sleep(3)
     loop = asyncio.get_event_loop()
 
-    FILE = "source.jpg"
-
-    with open(f"{FILE}.fileinfo", mode="r") as fp:
-        fileinfo = json.load(fp)
+    fileinfo = get_file_info("source.jpg")
 
     loop.run_until_complete(download_file(fileinfo, "out.jpg"))
 
