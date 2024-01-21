@@ -43,14 +43,15 @@ async def accept_connections():
             client_socket, addr = await loop.sock_accept(server_socket)
             print(f"Connection from {addr}")
 
-            data = await loop.sock_recv(client_socket, 72)
-
+            msg_type_byte = await loop.sock_recv(client_socket, 1)
             # todo: find a way to just call unpack without the match statement
-            match int(data[0]):
+            match int.from_bytes(msg_type_byte, byteorder='little', signed=False):
                 case MsgType.APEER.value:
-                    await process_APEER(data, loop, client_socket)
+                    data = await loop.sock_recv(client_socket, 71)
+                    await process_APEER(msg_type_byte + data, loop, client_socket)
                 case MsgType.REPRT.value:
-                    await process_REPRT(data, client_socket)
+                    data = await loop.sock_recv(client_socket, 43)
+                    await process_REPRT(msg_type_byte + data, client_socket)
 
             client_socket.close()
 
@@ -160,12 +161,12 @@ async def process_REPRT(data, client_socket):
 
 
 if __name__ == "__main__":
-    files.append(
-        File(size=736052, file_hash="c54dedc175d993f3b632a5b5bdfc9a920d2139ee8df50e8f3219ec7a462de823"[:32], timeout=300, peers=[
-            Peer(f"10.5.0.31", availability=1),
-            Peer(f"10.5.0.32", availability=1),
-            Peer(f"10.5.0.33", availability=1),
-        ])
-    )
+    # files.append(
+    #     File(size=736052, file_hash="c54dedc175d993f3b632a5b5bdfc9a920d2139ee8df50e8f3219ec7a462de823"[:32], timeout=300, peers=[
+    #         Peer(f"10.5.0.31", availability=1),
+    #         Peer(f"10.5.0.32", availability=1),
+    #         Peer(f"10.5.0.33", availability=1),
+    #     ])
+    # )
 
     asyncio.run(main())

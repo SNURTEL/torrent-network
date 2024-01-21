@@ -10,4 +10,4 @@ COPY . /code/project
 WORKDIR /code/project/peer
 ENV PYTHONPATH="${PYTHONPATH}:/code"
 
-ENTRYPOINT sh -c "tc qdisc add dev eth0 root netem delay 5ms" && python3 -u dummy_server.py $addr
+ENTRYPOINT sh -c "tc qdisc add dev eth0 root netem delay 5ms" && python3 -u peer_server.py $addr

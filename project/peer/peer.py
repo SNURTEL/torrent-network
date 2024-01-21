@@ -4,28 +4,26 @@ import asyncio
 import shutil
 import os
 import sys
-import time
 import itertools
-import threading
 import time
+import subprocess
+import pathlib
 from hashlib import sha256
-from peer_server import run_server
 
 from project.coordinator.data_classes import Peer, decode_peers
-from project.messages.body import MsgType, GCHNK_body, APEER_body, ErrorCode, ACHNK_body, REPRT_body
+from project.messages.body import ErrorCode, ACHNK_body
 from project.messages.body import MsgType, GCHNK_body, REPRT_body, APEER_body
 from project.messages.pack import pack, unpack
+from project.peer.peer_server import run_peer_server
 
 global IP_ADDR
 
 CHUNK_SIZE = 1024
-RESCOURSE_FOLDER = "rescources"
 
-MAX_CONNECTIONS = 2
-
-RETRY_SECONDS = 5
-
-REPORTING_INTERVAL_SECONDS = 3
+MAX_DOWNLOAD_CONNECTIONS = 2
+CHUNK_UNAVAILABLE_RETRY_SECONDS = 5
+DOWNLOAD_REPORTING_INTERVAL_SECONDS = 3
+CLIENT_COMM_SOCKET_PATH = '/tmp/peer_server.sock'
 
 
 async def _query_coordinator_for_file_peers(
@@ -103,7 +101,7 @@ async def download_file(fileinfo: dict, out_name: str):
 
     retry_queue = asyncio.Queue()
 
-    sem = asyncio.Semaphore(MAX_CONNECTIONS)
+    sem = asyncio.Semaphore(MAX_DOWNLOAD_CONNECTIONS)
 
     chunk_peers_mapping = {}
 
@@ -138,7 +136,7 @@ async def download_file(fileinfo: dict, out_name: str):
             else:
                 print("No chunks downloaded, skipping report")
 
-            await asyncio.sleep(REPORTING_INTERVAL_SECONDS)
+            await asyncio.sleep(DOWNLOAD_REPORTING_INTERVAL_SECONDS)
 
     async def build_chunk_peer_mapping() -> dict[int, list[str]]:
         """
@@ -176,8 +174,9 @@ async def download_file(fileinfo: dict, out_name: str):
                     num_chunks = int.from_bytes(prefix[-4:-2], byteorder='little', signed=False)
                     chunks_bytes = await reader.readexactly(n=num_chunks * 4)
                     chunks_response = unpack(prefix + chunks_bytes, MsgType.CHNKS)
-                    avail_chunks = [int.from_bytes(chunks_response.availability[i:i + 4], byteorder='little', signed=False)
-                                    for i in range(0, num_chunks * 4, 4)]
+                    avail_chunks = [
+                        int.from_bytes(chunks_response.availability[i:i + 4], byteorder='little', signed=False)
+                        for i in range(0, num_chunks * 4, 4)]
                     return avail_chunks
                 finally:
                     writer.close()
@@ -264,7 +263,8 @@ async def download_file(fileinfo: dict, out_name: str):
         async with sem:
             reader, writer = await asyncio.open_connection(host, port)
             try:
-                for coro in [_download_and_save_chunk(chunk_num, chunk_hash, reader, writer) for chunk_num, chunk_hash in
+                for coro in [_download_and_save_chunk(chunk_num, chunk_hash, reader, writer) for chunk_num, chunk_hash
+                             in
                              zip(chunk_nums, chunk_hashes)]:
                     await coro
             finally:
@@ -304,8 +304,9 @@ async def download_file(fileinfo: dict, out_name: str):
                 for item in unavailable_items:
                     await retry_queue.put(item)
 
-                print(f"Chunks {[num for num, _ in unavailable_items]} not available, retrying in {RETRY_SECONDS}s")
-                await asyncio.sleep(RETRY_SECONDS)
+                print(
+                    f"Chunks {[num for num, _ in unavailable_items]} not available, retrying in {CHUNK_UNAVAILABLE_RETRY_SECONDS}s")
+                await asyncio.sleep(CHUNK_UNAVAILABLE_RETRY_SECONDS)
 
         # remove null padding from file
         with open(partial_file, mode='rb') as fsource:
@@ -333,98 +334,51 @@ async def download_file(fileinfo: dict, out_name: str):
         os.remove(partial_file)
 
 
-async def send_file_report(file_state):
-    files = get_files()
-    new_file_state = {}
-    to_send = []
+def check_server_running() -> bool:
+    async def _ping_server():
+        CLIENT_COMM_SOCKET_PATH = '/tmp/peer_server.sock'
 
-    for removed in filter(lambda i: i not in files, file_state.keys()):
-        raport_msg = pack(
-            REPRT_body(msg_type=MsgType.REPRT.value, file_hash=file_state[removed], availability=0, file_size=0)
-        )
-        to_send.append(raport_msg)
+        print("Ping server provess")
+        reader, writer = await asyncio.open_unix_connection(CLIENT_COMM_SOCKET_PATH)
+        writer.write(b'\x00')
+        response = await reader.readexactly(1)
+        assert response == b'\x00'
 
-    for file in files:
-        file_path = os.path.join(RESCOURSE_FOLDER, file)
-        with open(file_path, mode='rb') as f:
-            content = f.read()
-            hash = str.encode(sha256(content).hexdigest())[:32]
-        new_file_state[file] = hash
-        if file.endswith(".partial"):
-            av = 1
-        else:
-            av = 2
-        raport_msg = pack(
-            REPRT_body(msg_type=MsgType.REPRT.value, file_hash=hash, availability=av, file_size=len(content))
-        )
-        to_send.append(raport_msg)
-
-    writer = None
     try:
-        writer = None
-        reader, writer = await asyncio.open_connection("localhost", 8000)
-        for raport in to_send:
-            writer.write(raport)
-        await writer.drain()
-    finally:
-        if writer is not None:
-            writer.close()
-            await writer.wait_closed()
-
-    return new_file_state
-
-
-async def ask_for_peers(hash):
-    writer = None
-    data = None
-    try:
-        reader, writer = await asyncio.open_connection('localhost', 8000)
-        ask_for_peers_msg = pack(APEER_body(
-            msg_type=MsgType.APEER.value,
-            file_hash=str.encode(hash),
-        )
-        )
-        writer.write(ask_for_peers_msg)
-        await writer.drain()
-        data = await reader.read()
-        data = unpack(data, MsgType.PEERS)
-    finally:
-        if writer:
-            writer.close()
-            await writer.wait_closed()
-
-    return data
-
-
-def get_init_file_state():
-    files = get_files()
-    file_state = {}
-    for file in files:
-        file_path = os.path.join(RESCOURSE_FOLDER, file)
-        with open(file_path, mode='rb') as f:
-            content = f.read()
-            hash = str.encode(sha256(content).hexdigest())[:32]
-        file_state[file] = hash
-    return file_state
-
-
-def get_files():
-    try:
-        files = [f for f in os.listdir(RESCOURSE_FOLDER) if os.path.isfile(os.path.join(RESCOURSE_FOLDER, f))]
+        asyncio.run(_ping_server())
+        return True
     except FileNotFoundError:
-        files = []
-        os.mkdir(RESCOURSE_FOLDER)
-    return files
+        return False
 
 
-async def automatic_reporting():
-    file_state = get_init_file_state()
-    while True:
-        try:
-            file_state = await send_file_report(file_state)
-            await asyncio.sleep(15)
-        except KeyboardInterrupt:
-            break
+def start_server():
+    pid = os.fork()
+    if pid == 0:
+        return
+
+    with open("server.log", mode='w') as fp:
+        fp.write("server running")
+
+    SERVER_PORT = 8000
+    REPORTING_INTERVAL_SECONDS = 15
+
+    addr = sys.argv[1] if len(sys.argv) > 1 else '127.0.0.1'
+    try:
+        asyncio.run(run_peer_server(addr, SERVER_PORT, REPORTING_INTERVAL_SECONDS, CLIENT_COMM_SOCKET_PATH))
+    except Exception as e:
+        import traceback
+
+        with open("server.log", mode='a') as fp:
+            fp.write(traceback.format_exc())
+
+async def main():
+    FILE = 'resources/source.jpg'
+
+    with open(f"{FILE}.fileinfo", mode='r') as fp:
+        fileinfo = json.load(fp)
+    await asyncio.gather(
+        download_file(fileinfo, 'out.jpg')
+    )
 
 
 if __name__ == '__main__':
@@ -432,15 +386,11 @@ if __name__ == '__main__':
     IP_ADDR = sys.argv[1] if len(sys.argv) > 1 else '127.0.0.1'
 
     time.sleep(3)
-    loop = asyncio.get_event_loop()
 
-    FILE = 'source.jpg'
+    if not check_server_running():
+        start_server()
 
-    with open(f"{FILE}.fileinfo", mode='r') as fp:
-        fileinfo = json.load(fp)
-
-    loop.run_until_complete(
-        download_file(fileinfo, 'out.jpg'))
+    asyncio.run(main())
 
     # halt execution to allow for inspecting the container
     time.sleep(9999999)
