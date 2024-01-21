@@ -328,6 +328,52 @@ async def download_file(fileinfo: dict, out_name: str):
         os.remove(partial_file)
 
 
+def main_menu(user_input):
+    try:
+        command, params = user_input.split(" ", 1)
+    except ValueError:
+        command = user_input
+        params = None
+    match command:
+        case "download":
+            if params is None:
+                print("No file name provided")
+                main_menu("help download")
+            else:
+                print(f"Downloading file{params}")
+                # asyncio.run(download_file(params[0][:32], 736052, params[1] if params[1] else "out.jpeg"))
+                asyncio.run(download_file(params[0][:32], 736052, params[1], params[2]))
+        case "help":
+            help(params)
+        case "exit":
+            print("Exiting...")
+            exit()
+        case _:
+            print("Unknown command")
+
+
+def help(params=None):
+    if params is not None:
+        print("Help for command:", params)
+        match params:
+            case "download":
+                print("download <file_hash> <output_name> <source_port> <source_ip> - download file form peer")
+            case "list":
+                print("list <file_name> - list files containing <file_name>")
+            case "help":
+                print("help <command> - get help for command")
+            case "exit":
+                print("exit - exit program")
+            case _:
+                print("Unknown command")
+    else:
+        print("List of commands:")
+        print("download")
+        print("list")
+        print("help")
+        print("exit")
+
+
 if __name__ == '__main__':
     global IP_ADDR
     IP_ADDR = sys.argv[1] if len(sys.argv) > 1 else '127.0.0.1'
