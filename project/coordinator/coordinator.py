@@ -2,6 +2,7 @@ import random
 import socket
 import sys
 import asyncio
+import time
 from hashlib import sha256
 
 from project.messages.pack import unpack, pack
@@ -12,16 +13,6 @@ hostname = socket.gethostname()
 HOST_DEFAULT = socket.gethostbyname(hostname)
 files = list()
 file_timeout = 5 * 6  # in seconds
-check_interval = 6
-
-
-async def main():
-    tasks = [
-        asyncio.create_task(do_stuff_every_x_seconds(check_interval)),
-        asyncio.create_task(accept_connections())
-    ]
-
-    await asyncio.gather(*tasks)
 
 
 async def accept_connections():
@@ -35,13 +26,15 @@ async def accept_connections():
         print(f"Server listening on {host}:{port}")
 
         loop = asyncio.get_event_loop()
+        start_time = time.time()
 
         while True:
             client_socket, addr = await loop.sock_accept(server_socket)
+            check_validity(time.time() - start_time)
+            start_time = time.time()
             print(f"Connection from {addr}")
 
             while msg_type_byte := await loop.sock_recv(client_socket, 1):
-                # todo: find a way to just call unpack without the match statement
                 match int.from_bytes(msg_type_byte, byteorder='little', signed=False):
                     case MsgType.APEER.value:
                         data = await loop.sock_recv(client_socket, 71)
@@ -52,16 +45,9 @@ async def accept_connections():
 
             client_socket.close()
 
-            print(f"Files: {files}")
 
 
-async def do_stuff_every_x_seconds(timeout):
-    while True:
-        await asyncio.sleep(timeout)
-        await check_validity(timeout)
-
-
-async def check_validity(timeout: int):
+def check_validity(timeout: float):
     valid_files = []
     global files
 
@@ -80,7 +66,7 @@ def find_file(hash: str) -> File | None:
     return None
 
 
-def create_file(body: REPRT_body, peer_name: str):
+def create_file(body: REPRT_body, peer_name: str) -> None:
     peers = [Peer(
         address=peer_name,
         availability=int(body.availability)
@@ -95,7 +81,7 @@ def create_file(body: REPRT_body, peer_name: str):
     files.append(file)
 
 
-def update_file(file: File, body: REPRT_body, peer_name: str):
+def update_file(file: File, body: REPRT_body, peer_name: str) -> None:
     for peer in file.peers:
         if peer.address == peer_name:
             file.timeout = file_timeout
@@ -161,12 +147,4 @@ async def process_REPRT(data, client_socket):
 
 
 if __name__ == "__main__":
-    # files.append(
-    #     File(size=736052, file_hash="c54dedc175d993f3b632a5b5bdfc9a920d2139ee8df50e8f3219ec7a462de823"[:32], timeout=300, peers=[
-    #         Peer(f"10.5.0.31", availability=1),
-    #         Peer(f"10.5.0.32", availability=1),
-    #         Peer(f"10.5.0.33", availability=1),
-    #     ])
-    # )
-
-    asyncio.run(main())
+    asyncio.run(accept_connections())
