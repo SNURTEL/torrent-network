@@ -63,9 +63,7 @@ async def _query_coordinator_for_file_peers(
     peers_response = unpack(prefix + peers_bytes, MsgType.PEERS)
     return [
         peer for peer in decode_peers(peers_response.peers)
-        if peer.address != IP_ADDR
-           and not peer.address.startswith(
-            '10.5.0.2')]  # FIXME workaround to disable connecting to other peers until we have proper seeding
+        if peer.address != IP_ADDR]
 
 
 async def _download_chunk(
@@ -351,6 +349,9 @@ async def download_file(fileinfo: dict, out_name: str):
 
 
 def check_server_running() -> bool:
+    """
+    Ping the server socket, return True if got response
+    """
     async def _ping_server():
         CLIENT_COMM_SOCKET_PATH = '/tmp/peer_server.sock'
 
@@ -367,9 +368,13 @@ def check_server_running() -> bool:
         return False
 
 
-def start_server():
+def start_server(addr: str):
+    """
+    Run the reporting server in a separate process
+    """
     pid = os.fork()
     if pid == 0:
+        print("Started server")
         return
 
     with open("server.log", mode='w') as fp:
@@ -378,7 +383,6 @@ def start_server():
     SERVER_PORT = 8000
     REPORTING_INTERVAL_SECONDS = 15
 
-    addr = sys.argv[1] if len(sys.argv) > 1 else '127.0.0.1'
     try:
         asyncio.run(run_peer_server(addr, SERVER_PORT, REPORTING_INTERVAL_SECONDS, CLIENT_COMM_SOCKET_PATH))
     except Exception as e:
@@ -388,26 +392,98 @@ def start_server():
             fp.write(traceback.format_exc())
     sys.exit(0)
 
-async def main(fileinfo_file):
 
-    with open(fileinfo_file, mode='r') as fp:
-        fileinfo = json.load(fp)
-    await asyncio.gather(
-        download_file(fileinfo, f'{RESOURCE_DIR}/out.jpg')
-    )
+def kill_server():
+    """
+    Send \x01 to reporting server, effectively killing it
+    """
+    async def _kill_server():
+        CLIENT_COMM_SOCKET_PATH = '/tmp/peer_server.sock'
+
+        print("Kill server process")
+        reader, writer = await asyncio.open_unix_connection(CLIENT_COMM_SOCKET_PATH)
+        writer.write(b'\x01')
+        response = await reader.readexactly(1)
+        assert response == b'\x01'
+    try:
+        try:
+            asyncio.run(_kill_server())
+            print("Killed server")
+        except FileNotFoundError:
+            print("Server not running")
+    except Exception as e:
+        print(f"Could not kill server: {repr(e)}")
+
+def main():
+    """
+    Parse input and do stuff
+    """
+    if len(sys.argv) < 2:
+        print_help()
+        return
+    try:
+        command, params = sys.argv[1], sys.argv[2:]
+    except IndexError:
+        command = sys.argv[1]
+        params = None
+    match command:
+        case "get":
+            if len(params) != 2:
+                print_help()
+                return
+
+            fileinfo_file, out_file = params
+            print(f"Download file from {fileinfo_file}")
+            if not check_server_running():
+                start_server(IP_ADDR)
+
+            asyncio.run(get_file(fileinfo_file, out_file))
+        case "start-server":
+            start_server(IP_ADDR)
+        case "kill-server":
+            kill_server()
+        case _:
+            print_help()
+
+
+def print_help():
+    help_str = """
+    Download files from "torrent" network.
+    
+    Usage:
+        python3 peer.py get <.fileinfo file> <out file>
+        python3 peer.py start-server
+        python3 peer.py kill-server
+        python3 peer.py help
+    """
+
+    print(help_str)
+
+async def get_file(fileinfo_file: str, out_file: str):
+    """
+    Download file from .fileinfo and save under given name in resource dir
+    """
+    try:
+        with open(fileinfo_file, mode='r') as fp:
+            fileinfo = json.load(fp)
+            out_path =f'{RESOURCE_DIR}/{out_file}'
+        await asyncio.gather(
+            download_file(fileinfo, out_path)
+        )
+
+        print(f"Wrote to {out_path}")
+    except Exception as e:
+        print(repr(e))
+        print("Failed downloading file")
+        sys.exit(1)
 
 
 if __name__ == '__main__':
+    import socket
+
     global IP_ADDR
-    IP_ADDR = sys.argv[1] if len(sys.argv) > 1 else '127.0.0.1'
-    fileinfo_file = sys.argv[2] if len(sys.argv) > 2 else None
 
-    time.sleep(3)
+    hostname = socket.gethostname()
+    IP_ADDR = socket.gethostbyname(hostname)
 
-    if not check_server_running():
-        start_server()
-
-    asyncio.run(main(fileinfo_file))
-
-    # halt execution to allow for inspecting the container
-    time.sleep(9999999)
+    main()

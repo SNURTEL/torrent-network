@@ -18,7 +18,7 @@ services:
       context: .
       dockerfile: peer.Dockerfile
       args:
-        ADDR: '10.5.0.21'
+        COMMAND: "get source.jpg.fileinfo out.jpg"
     cap_add:
     - NET_ADMIN
     networks:
@@ -29,53 +29,40 @@ services:
     container_name: psi_peer2
     build:
       context: .
-      dockerfile: peer.Dockerfile
+      dockerfile: peer_default.Dockerfile
       args:
-        ADDR: '10.5.0.22'
+        COMMAND: "start-server"
     cap_add:
     - NET_ADMIN
     networks:
       network:
         ipv4_address: 10.5.0.22
 
-  dummy1:
-    container_name: psi_dummy1
+  peer3:
+    container_name: psi_peer3
     build:
       context: .
-      dockerfile: dummy.Dockerfile
+      dockerfile: peer_default.Dockerfile
       args:
-        ADDR: '10.5.0.31'
+        COMMAND: "start-server"
     cap_add:
     - NET_ADMIN
     networks:
       network:
-        ipv4_address: 10.5.0.31
+        ipv4_address: 10.5.0.23
 
-  dummy2:
-    container_name: psi_dummy2
+  peer4:
+    container_name: psi_peer4
     build:
       context: .
-      dockerfile: dummy.Dockerfile
+      dockerfile: peer_default.Dockerfile
       args:
-        ADDR: '10.5.0.32'
+        COMMAND: "start-server"
     cap_add:
     - NET_ADMIN
     networks:
       network:
-        ipv4_address: 10.5.0.32
-
-  dummy3:
-    container_name: psi_dummy3
-    build:
-      context: .
-      dockerfile: dummy.Dockerfile
-      args:
-        ADDR: '10.5.0.33'
-    cap_add:
-    - NET_ADMIN
-    networks:
-      network:
-        ipv4_address: 10.5.0.33
+        ipv4_address: 10.5.0.24
 
 
 networks:

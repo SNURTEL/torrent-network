@@ -6,13 +6,11 @@ from hashlib import sha256
 
 from project.messages.pack import pack, unpack
 from project.messages.body import SCHNK_body, MsgType, CHNKS_body, ERROR_body, ErrorCode
-from project.peer.reporting import report_availability_periodically,get_resource_dir_hashes
+from project.peer.reporting import report_availability_periodically, get_resource_dir_hashes
 
 CHUNK_SIZE = 1024
 
 RESOURCE_DIR = "resources"
-
-
 
 
 async def _handle_client(client, client_addr):
@@ -21,7 +19,6 @@ async def _handle_client(client, client_addr):
     def refresh_hash_file_mapping():
         nonlocal hash_file_mapping
         hash_file_mapping = {v: k for k, v in get_resource_dir_hashes().items()}
-        print(hash_file_mapping)
 
     def get_file_from_hash(file_hash: str) -> str:
         file = hash_file_mapping.get(file_hash)
@@ -29,8 +26,6 @@ async def _handle_client(client, client_addr):
             refresh_hash_file_mapping()
             file = hash_file_mapping.get(file_hash)
         return file
-
-
 
     refresh_hash_file_mapping()
 
@@ -67,13 +62,11 @@ async def _handle_client(client, client_addr):
                         content=response_content
                     ))
 
-
                 await loop.sock_sendall(client, response)
 
             case MsgType.ACHNK:
                 rest = await loop.sock_recv(client, 36 - 1)
                 msg = unpack(msg_type_byte + rest, MsgType.ACHNK)
-
 
                 file_hash = msg.file_hash.decode()
                 file = get_file_from_hash(file_hash)
@@ -129,9 +122,9 @@ async def chunk_server(addr: str, port_num: int):
         server.shutdown(0)
         server.close()
 
+
 async def client_listener_server(sock_path: str):
-    class CloseServerException(Exception):
-        pass
+    server = None
 
     async def handle_req(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
         msg_byte = await reader.readexactly(1)
@@ -140,19 +133,26 @@ async def client_listener_server(sock_path: str):
         writer.close()
         await writer.wait_closed()
 
-        if msg_byte != b'\x00':
-            raise CloseServerException
+        with open("server.log", mode='a') as fp:
+            fp.writelines(f"got {msg_byte}")
 
-    try:
-        server = await asyncio.start_unix_server(handle_req, path=sock_path)
-        async with server:
-            await server.serve_forever()
-    except CloseServerException:
-        return
+        if msg_byte != b'\x00':
+            with open("server.log", mode='a') as fp:
+                fp.writelines(f"try stop")
+            server.close()
+            await server.wait_closed()
+
+
+    server = await asyncio.start_unix_server(handle_req, path=sock_path)
+    async with server:
+         await server.serve_forever()
+
+    with open("server.log", mode='a') as fp:
+        fp.writelines(f"stop server")
+
+
 
 async def run_peer_server(addr: str, port: int, reporting_interval_seconds: int, client_comm_socket_path: str):
-    await asyncio.sleep(2)
-
     print("Up & running")
 
     done, pending = await asyncio.wait([
@@ -167,14 +167,3 @@ async def run_peer_server(addr: str, port: int, reporting_interval_seconds: int,
 
     with open("server.log", mode='w') as fp:
         fp.write("server exited")
-
-
-
-if __name__ == '__main__':
-    SERVER_PORT = 8000
-    REPORTING_INTERVAL_SECONDS = 15
-    CLIENT_COMM_SOCKET_PATH = '/tmp/peer_server.sock'
-
-    addr = sys.argv[1] if len(sys.argv) > 1 else '127.0.0.1'
-
-    asyncio.run(run_peer_server(addr, SERVER_PORT, REPORTING_INTERVAL_SECONDS, CLIENT_COMM_SOCKET_PATH))

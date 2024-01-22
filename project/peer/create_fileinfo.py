@@ -1,4 +1,5 @@
 import json
+import sys
 from hashlib import sha256
 
 CHUNK_SIZE = 1024
@@ -28,4 +29,4 @@ def main(filename: str):
     print(f"Wrote to {fileinfo}.fileinfo")
 
 if __name__ == '__main__':
-    main('source.jpg')
+    main(sys.argv[1])

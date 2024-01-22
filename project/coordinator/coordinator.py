@@ -8,9 +8,10 @@ from project.messages.pack import unpack, pack
 from project.messages.body import MsgType, ErrorCode, PEERS_body, ERROR_body, REPRT_body
 from project.coordinator.data_classes import File, Peer, encode_peers, decode_peers
 
-HOST_DEFAULT = "10.5.0.10"
+hostname = socket.gethostname()
+HOST_DEFAULT = socket.gethostbyname(hostname)
 files = list()
-file_timeout = 5 * 6 # in seconds
+file_timeout = 5 * 6  # in seconds
 check_interval = 6
 
 
@@ -24,12 +25,8 @@ async def main():
 
 
 async def accept_connections():
-    if len(sys.argv) < 3:
-        host = HOST_DEFAULT
-        port = 8000
-    else:
-        host = sys.argv[1]
-        port = int(sys.argv[2])
+    host = HOST_DEFAULT
+    port = 8000
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
         server_socket.bind((HOST_DEFAULT, port))
@@ -43,15 +40,15 @@ async def accept_connections():
             client_socket, addr = await loop.sock_accept(server_socket)
             print(f"Connection from {addr}")
 
-            msg_type_byte = await loop.sock_recv(client_socket, 1)
-            # todo: find a way to just call unpack without the match statement
-            match int.from_bytes(msg_type_byte, byteorder='little', signed=False):
-                case MsgType.APEER.value:
-                    data = await loop.sock_recv(client_socket, 71)
-                    await process_APEER(msg_type_byte + data, loop, client_socket)
-                case MsgType.REPRT.value:
-                    data = await loop.sock_recv(client_socket, 43)
-                    await process_REPRT(msg_type_byte + data, client_socket)
+            while msg_type_byte := await loop.sock_recv(client_socket, 1):
+                # todo: find a way to just call unpack without the match statement
+                match int.from_bytes(msg_type_byte, byteorder='little', signed=False):
+                    case MsgType.APEER.value:
+                        data = await loop.sock_recv(client_socket, 71)
+                        await process_APEER(msg_type_byte + data, loop, client_socket)
+                    case MsgType.REPRT.value:
+                        data = await loop.sock_recv(client_socket, 43)
+                        await process_REPRT(msg_type_byte + data, client_socket)
 
             client_socket.close()
 
@@ -105,11 +102,15 @@ def update_file(file: File, body: REPRT_body, peer_name: str):
             file.peers.remove(peer)
             break
 
-    peer = Peer(
-        address=peer_name,
-        availability=body.availability
-    )
-    file.peers.append(peer)
+    if body.availability != 0:
+        peer = Peer(
+            address=peer_name,
+            availability=body.availability
+        )
+        file.peers.append(peer)
+    else:
+        global files
+        files = [f for f in files if f.file_hash != file.file_hash]
 
 
 def create_availability_report(file: File) -> bytes:
@@ -147,7 +148,6 @@ async def process_APEER(data, loop, client_socket):
     except Exception as e:
         print(e)
         await loop.sock_sendall(sock=client_socket, data=pack(ERROR_body(msg_type=MsgType.ERROR.value, error_code=1)))
-
 
 
 async def process_REPRT(data, client_socket):

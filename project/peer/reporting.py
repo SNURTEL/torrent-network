@@ -32,6 +32,7 @@ async def send_file_report(previous_file_hashes: file_hashes_t) -> file_hashes_t
 
     for filename in filenames:
         file_path = os.path.join(RESOURCE_DIR, filename)
+
         with open(file_path, mode='rb') as fp:
             content = fp.read()
             file_hash = sha256(content).hexdigest()[:32]
@@ -104,8 +105,8 @@ async def report_availability_periodically(reporting_interval: int):
     file_state = get_resource_dir_hashes()
     while True:
         try:
-            print(file_state)
             file_state = await send_file_report(file_state)
+            print(f"Available files: {file_state}")
             await asyncio.sleep(reporting_interval)
         except KeyboardInterrupt:
             break

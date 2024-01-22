@@ -1,7 +1,7 @@
 FROM python:3.11-alpine
 
-ARG ADDR
-ENV addr=$ADDR
+ARG COMMAND
+ENV command=$COMMAND
 
 RUN apk --upgrade add iptables iproute2
 
@@ -10,4 +10,4 @@ COPY . /code/project
 WORKDIR /code/project/peer
 ENV PYTHONPATH="${PYTHONPATH}:/code"
 
-ENTRYPOINT sh -c "tc qdisc add dev eth0 root netem delay 5ms" && python3 -u peer_server.py $addr
+ENTRYPOINT sleep 1 && sh -c "tc qdisc add dev eth0 root netem delay 5ms" && python3 -u peer.py $command
