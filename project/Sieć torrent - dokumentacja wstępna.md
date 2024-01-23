@@ -107,16 +107,16 @@ Błędy mogą wystąpić na wielu różnych etapach procesu. Poniżej przedstawi
 
 ## 5. Przypadki testowe
 
-- pobranie pliku od jednego peera
-- pobranie pliku od wielu peerów
-- pobieranie pliku przez wiele peerów naraz
-- udostępnianie pobranego pliku
-- pobieranie i jednoczesne udostępnianie pliku (pobranych już chunków)
-- próba pobrania usuniętego pliku
+- pobranie pliku od jednego peera - single_peer_download
+- pobranie pliku od wielu peerów - multiple_peers_share
+- pobieranie pliku przez wiele peerów naraz - multiple_peers_download
+- udostępnianie pobranego pliku - dzieje się automatycznie w ramach innych testów
+- pobieranie i jednoczesne udostępnianie pliku (pobranych już chunków) - jak wyżej
+- próba pobrania usuniętego pliku - deleted_file
     - plik usunięty z wyłączoną aplikacją
     - plik usunięty z włączoną aplikacją
 - peer został wyłączony (koordynator inwaliduje wpis)
-- koordynator nie żyje [*]
+- koordynator nie żyje [*] - dead_coordinator
 
 ## 6. Scenariusz demonstracji
 

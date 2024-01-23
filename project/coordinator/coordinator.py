@@ -12,7 +12,7 @@ from project.coordinator.data_classes import File, Peer, encode_peers, decode_pe
 hostname = socket.gethostname()
 HOST_DEFAULT = socket.gethostbyname(hostname)
 files = list()
-file_timeout = 5 * 6  # in seconds
+file_timeout = 5 * 60  # in seconds
 
 
 async def accept_connections():

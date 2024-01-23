@@ -3,7 +3,7 @@ FROM python:3.11-alpine
 RUN apk --upgrade add iptables iproute2
 
 RUN mkdir /code
-COPY . /code/project
+COPY ../../.. /code/project
 WORKDIR /code/project
 ENV PYTHONPATH="${PYTHONPATH}:/code"
 

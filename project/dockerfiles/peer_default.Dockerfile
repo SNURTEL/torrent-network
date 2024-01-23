@@ -6,7 +6,7 @@ ENV command=$COMMAND
 RUN apk --upgrade add iptables iproute2
 
 RUN mkdir /code
-COPY . /code/project
+COPY ../../.. /code/project
 WORKDIR /code/project/peer
 ENV PYTHONPATH="${PYTHONPATH}:/code"
 
