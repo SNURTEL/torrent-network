@@ -47,61 +47,61 @@ Podczas gdy peer rozpoczyna pobiernie pliku w osobnym procesie uruchamiany jest 
 ### Struktura wiadomości
 
 #### ERROR - Stały rozmiar
-1B rodzaj wiadomości
-1B kod błędu
-2B padding
+- 1B rodzaj wiadomości
+- 1B kod błędu
+- 2B padding
 
 #### APEER - Stały rozmiar
-1B rodzaj wiadomości
-3B padding
-32B hash pliku
+- 1B rodzaj wiadomości
+- 3B padding
+- 32B hash pliku
 
 #### PEERS - Zmienny rozmiar
-1B rodzaj wiadomości
-3B padding
-32B hash pliku
-4B rozmiar pliku
-4B liczba peerów
-N*5B rekordy:
-8B adres peera
-1B rodzaj dostępności (1 - cały, 2 - cześć)
+- 1B rodzaj wiadomości
+- 3B padding
+- 32B hash pliku
+- 4B rozmiar pliku
+- 4B liczba peerów
+- N * 5B rekordy:
+  - 8B adres peera
+  - 1B rodzaj dostępności (0 - brak, 1 - cały, 2 - cześć)
 
 #### REPRT - Stały rozmiar
-1B rodzaj wiadomości
-3B padding
-32B hash pliku
-1B dostępność (0 - nie ma, 1 - częściowa, 2 - cały)
-3B padding
-4B rozmiar pliku
+- 1B rodzaj wiadomości
+- 3B padding
+- 32B hash pliku
+- 1B dostępność (0 - nie ma, 1 - częściowa, 2 - cały)
+- 3B padding
+- 4B rozmiar pliku
 
 #### ACHNK - Stały rozmiar
-1B rodzaj wiadomości
-3B padding
-32B hash pliku
+- 1B rodzaj wiadomości
+- 3B padding
+- 32B hash pliku
 
 #### CHNKS - Zmienny rozmiar
-1B rodzaj wiadomości
-3B padding
-32B hash pliku
-2B liczba chunków
-2B padding
-N * 4B - numery posiadanych chunków
+- 1B rodzaj wiadomości
+- 3B padding
+- 32B hash pliku
+- 2B liczba chunków
+- 2B padding
+- N * 4B - numery posiadanych chunków
 
 #### GCHNK - Stały rozmiar
-1B rodzaj wiadomości
-3B padding
-32B hash pliku
-2B numer chunka
-2B padding
+- 1B rodzaj wiadomości
+- 3B padding
+- 32B hash pliku
+- 2B numer chunka
+- 2B padding
 
 #### SCHNK - Stały rozmiar
-1B rodzaj wiadomości
-3B padding
-32B hash pliku
-2B numer chunka
-2B padding
-32B hash chunka
-NB dane
+- 1B rodzaj wiadomości
+- 3B padding
+- 32B hash pliku
+- 2B numer chunka
+- 2B padding
+- 32B hash chunka
+- NB dane
 
 
 ## 4. Opis zachowania podmiotów komunikatów
@@ -124,7 +124,7 @@ NB dane
 
 ## 5. Wyniki testów
 
-Wszytskie testy zgodnie z oczekiwaniami prezentują założone zachowanie programu w przypadku awarii lub błędu użytkownika.
+Wszystkie testy zgodnie z oczekiwaniami prezentują założone zachowanie programu w przypadku awarii lub błędu użytkownika.
 Odpowiednie komunikaty są wyświetlane w terminalu informując o nietypowej sytuacji np. rządanie pliku, który nie jest posidany przez żadengo z peerów. 
 
 ### Przypadki testowe
